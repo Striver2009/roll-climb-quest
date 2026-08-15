@@ -141,11 +141,11 @@ function SettingsPage() {
         <section className="panel mt-5 p-5">
           <h2 className="font-display text-xl font-extrabold">🏆 Explorer record</h2>
           <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Summits" value={stats.data?.total_summits ?? 0} />
-            <Stat label="Missions" value={stats.data?.total_tasks_completed ?? 0} />
-            <Stat label="Rolls" value={stats.data?.total_rolls ?? 0} />
+            <Stat label="Summit days" value={stats.data?.total_completed_days ?? 0} />
+            <Stat label="Missions" value={stats.data?.total_completed_tasks ?? 0} />
+            <Stat label="Streak" value={stats.data?.current_streak ?? 0} />
             <Stat label="Best streak" value={stats.data?.longest_streak ?? 0} />
-          </dl>
+
         </section>
       </div>
     </main>
