@@ -553,7 +553,10 @@ function MissionsTab({
             patchTasks((list) => [
               ...list,
               {
-                ...list[0]!,
+                task_set_id: taskSetId,
+                user_id: "",
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
                 id: `temp-${Date.now()}`,
                 title: t,
                 description: null,
