@@ -85,23 +85,42 @@ export const getWorld = createServerFn({ method: "POST" })
     return { world: set.data, tasks: tasks.data ?? [], run: run.data ?? null };
   });
 
+const hexColor = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/, "bad colour")
+  .nullable();
+
 export const createWorld = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { name: string; emoji: string; theme: string; tasks: string[] }) =>
-    z
-      .object({
-        name: z.string().trim().min(1).max(60),
-        emoji: z.string().trim().min(1).max(8),
-        theme: z.enum(["sakura", "ocean", "ember", "forest", "violet"]),
-        tasks: z.array(z.string().trim().min(1).max(80)).max(40),
-      })
-      .parse(data),
+  .inputValidator(
+    (data: {
+      name: string;
+      emoji: string;
+      theme: string;
+      customColor?: string | null;
+      tasks: string[];
+    }) =>
+      z
+        .object({
+          name: z.string().trim().min(1).max(60),
+          emoji: z.string().trim().min(1).max(8),
+          theme: z.enum(["sakura", "ocean", "ember", "forest", "violet", "custom"]),
+          customColor: hexColor.optional(),
+          tasks: z.array(z.string().trim().min(1).max(80)).max(40),
+        })
+        .parse(data),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const set = await supabase
       .from("task_sets")
-      .insert({ user_id: userId, name: data.name, emoji: data.emoji, theme: data.theme })
+      .insert({
+        user_id: userId,
+        name: data.name,
+        emoji: data.emoji,
+        theme: data.theme,
+        custom_color: data.customColor ?? null,
+      })
       .select()
       .single();
     if (set.error) throw new Error(set.error.message);
@@ -121,21 +140,35 @@ export const createWorld = createServerFn({ method: "POST" })
 
 export const updateWorld = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { id: string; name?: string; emoji?: string; theme?: string }) =>
-    z
-      .object({
-        id: uuid,
-        name: z.string().trim().min(1).max(60).optional(),
-        emoji: z.string().trim().min(1).max(8).optional(),
-        theme: z.enum(["sakura", "ocean", "ember", "forest", "violet"]).optional(),
-      })
-      .parse(data),
+  .inputValidator(
+    (data: {
+      id: string;
+      name?: string;
+      emoji?: string;
+      theme?: string;
+      customColor?: string | null;
+    }) =>
+      z
+        .object({
+          id: uuid,
+          name: z.string().trim().min(1).max(60).optional(),
+          emoji: z.string().trim().min(1).max(8).optional(),
+          theme: z.enum(["sakura", "ocean", "ember", "forest", "violet", "custom"]).optional(),
+          customColor: hexColor.optional(),
+        })
+        .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const patch: { name?: string; emoji?: string; theme?: string } = {};
+    const patch: {
+      name?: string;
+      emoji?: string;
+      theme?: string;
+      custom_color?: string | null;
+    } = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.emoji !== undefined) patch.emoji = data.emoji;
     if (data.theme !== undefined) patch.theme = data.theme;
+    if (data.customColor !== undefined) patch.custom_color = data.customColor;
     const { id } = data;
     const res = await context.supabase
       .from("task_sets")
@@ -147,6 +180,7 @@ export const updateWorld = createServerFn({ method: "POST" })
     if (res.error) throw new Error(res.error.message);
     return res.data;
   });
+
 
 export const deleteWorld = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
