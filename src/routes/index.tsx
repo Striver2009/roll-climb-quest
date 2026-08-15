@@ -102,7 +102,6 @@ function LoginScreen() {
 
 function Worlds() {
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const fetchWorlds = useServerFn(listWorlds);
   const today = localDateString();
   const [creating, setCreating] = useState(false);
