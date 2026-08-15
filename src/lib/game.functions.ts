@@ -132,7 +132,11 @@ export const updateWorld = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const { id, ...patch } = data;
+    const patch: { name?: string; emoji?: string; theme?: string } = {};
+    if (data.name !== undefined) patch.name = data.name;
+    if (data.emoji !== undefined) patch.emoji = data.emoji;
+    if (data.theme !== undefined) patch.theme = data.theme;
+    const { id } = data;
     const res = await context.supabase
       .from("task_sets")
       .update(patch)
@@ -212,10 +216,10 @@ export const updateTask = createServerFn({ method: "POST" })
         .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = {};
-    if (data.title !== undefined) patch['title'] = data.title;
-    if (data.description !== undefined) patch['description'] = data.description;
-    if (data.isActive !== undefined) patch['is_active'] = data.isActive;
+    const patch: { title?: string; description?: string | null; is_active?: boolean } = {};
+    if (data.title !== undefined) patch.title = data.title;
+    if (data.description !== undefined) patch.description = data.description;
+    if (data.isActive !== undefined) patch.is_active = data.isActive;
     const res = await context.supabase
       .from("tasks")
       .update(patch)
@@ -361,14 +365,23 @@ export const updateSettings = createServerFn({ method: "POST" })
         .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if (data.environment !== undefined) patch['environment'] = data.environment;
-    if (data.musicEnabled !== undefined) patch['music_enabled'] = data.musicEnabled;
-    if (data.effectsEnabled !== undefined) patch['effects_enabled'] = data.effectsEnabled;
-    if (data.musicVolume !== undefined) patch['music_volume'] = data.musicVolume;
-    if (data.effectsVolume !== undefined) patch['effects_volume'] = data.effectsVolume;
-    if (data.masterMute !== undefined) patch['master_mute'] = data.masterMute;
-    if (data.animationMode !== undefined) patch['animation_mode'] = data.animationMode;
+    const patch: {
+      updated_at: string;
+      environment?: string;
+      music_enabled?: boolean;
+      effects_enabled?: boolean;
+      music_volume?: number;
+      effects_volume?: number;
+      master_mute?: boolean;
+      animation_mode?: string;
+    } = { updated_at: new Date().toISOString() };
+    if (data.environment !== undefined) patch.environment = data.environment;
+    if (data.musicEnabled !== undefined) patch.music_enabled = data.musicEnabled;
+    if (data.effectsEnabled !== undefined) patch.effects_enabled = data.effectsEnabled;
+    if (data.musicVolume !== undefined) patch.music_volume = data.musicVolume;
+    if (data.effectsVolume !== undefined) patch.effects_volume = data.effectsVolume;
+    if (data.masterMute !== undefined) patch.master_mute = data.masterMute;
+    if (data.animationMode !== undefined) patch.animation_mode = data.animationMode;
 
     const res = await context.supabase
       .from("user_settings")
