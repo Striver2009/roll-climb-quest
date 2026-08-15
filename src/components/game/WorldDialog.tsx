@@ -78,7 +78,7 @@ export function WorldDialog({
         void navigate({ to: "/world/$id", params: { id: saved.id } });
       }
     },
-    onError: () => toast.error("🏕️ Our mountain camp is temporarily unavailable."),
+    onError: (err: any) => toast.error(err?.message || "🏕️ Our mountain camp is temporarily unavailable."),
   });
 
   const del = useMutation({
