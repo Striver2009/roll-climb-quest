@@ -11,6 +11,7 @@ import { MountainScene } from "@/components/game/MountainScene";
 import type { EnvName } from "@/components/game/WeatherLayer";
 import { WorldDialog } from "@/components/game/WorldDialog";
 import { useAuth } from "@/hooks/useAuth";
+import type { Database } from "@/integrations/supabase/types";
 import { gameAudio } from "@/lib/audio";
 import { localDateString, msUntilLocalMidnight, prettyDate } from "@/lib/localdate";
 import {
@@ -48,7 +49,7 @@ export const Route = createFileRoute("/world/$id")({
 });
 
 type Tab = "climb" | "missions" | "history";
-type Task = { id: string; title: string; description: string | null; is_active: boolean };
+type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 function WorldPage() {
   const { id } = Route.useParams();
@@ -551,7 +552,14 @@ function MissionsTab({
             setTitle("");
             patchTasks((list) => [
               ...list,
-              { id: `temp-${Date.now()}`, title: t, description: null, is_active: true },
+              {
+                ...list[0]!,
+                id: `temp-${Date.now()}`,
+                title: t,
+                description: null,
+                is_active: true,
+                position: list.length,
+              },
             ]);
             mut.mutate(() => add({ data: { taskSetId, title: t } }));
           }}
