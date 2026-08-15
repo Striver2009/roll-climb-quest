@@ -287,15 +287,19 @@ export const reorderTasks = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    for (let i = 0; i < data.ids.length; i++) {
-      const res = await supabase
-        .from("tasks")
-        .update({ position: i })
-        .eq("id", data.ids[i]!)
-        .eq("task_set_id", data.taskSetId)
-        .eq("user_id", userId);
-      if (res.error) throw new Error(res.error.message);
-    }
+    const results = await Promise.all(
+      data.ids.map((taskId, i) =>
+        supabase
+          .from("tasks")
+          .update({ position: i })
+          .eq("id", taskId)
+          .eq("task_set_id", data.taskSetId)
+          .eq("user_id", userId),
+      ),
+    );
+    const failed = results.find((r) => r.error);
+    if (failed?.error) throw new Error(failed.error.message);
+
     return { ok: true };
   });
 
