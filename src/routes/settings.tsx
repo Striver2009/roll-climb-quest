@@ -145,6 +145,7 @@ function SettingsPage() {
             <Stat label="Missions" value={stats.data?.total_completed_tasks ?? 0} />
             <Stat label="Streak" value={stats.data?.current_streak ?? 0} />
             <Stat label="Best streak" value={stats.data?.longest_streak ?? 0} />
+          </dl>
 
         </section>
       </div>
