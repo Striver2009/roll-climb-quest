@@ -171,21 +171,30 @@ function Worlds() {
           {list.map((w) => {
             const pct = w.run && w.run.total ? Math.round((w.run.currentIndex / w.run.total) * 100) : 0;
             return (
-              <button
+              <div
                 key={w.id}
-                type="button"
-                onClick={() => void navigate({ to: "/world/$id", params: { id: w.id } })}
                 className={`theme-${w.theme} panel group relative overflow-hidden p-5 text-left transition-transform hover:-translate-y-1`}
+                style={{ ["--world-base" as string]: w.custom_color ?? undefined }}
               >
                 <div className="world-gradient absolute inset-x-0 top-0 h-24 opacity-70" />
                 <div className="relative">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <span className="text-4xl">{w.emoji}</span>
-                    {w.current_streak > 0 && (
-                      <span className="rounded-full bg-card px-2 py-1 text-xs font-bold shadow-card">
-                        🔥 {w.current_streak} DAY STREAK
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {w.current_streak > 0 && (
+                        <span className="rounded-full bg-card px-2 py-1 text-xs font-bold shadow-card">
+                          🔥 {w.current_streak} DAY STREAK
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        aria-label={`Edit ${w.name}`}
+                        onClick={() => setEditing(w)}
+                        className="rounded-xl border-2 border-border bg-card px-2 py-1 text-sm font-bold shadow-card"
+                      >
+                        ✏️
+                      </button>
+                    </div>
                   </div>
                   <h2 className="mt-6 font-display text-2xl font-extrabold">{w.name}</h2>
                   <p className="text-sm font-bold text-muted-foreground">
@@ -212,11 +221,16 @@ function Worlds() {
                     )}
                   </div>
 
-                  <span className="mt-5 inline-block rounded-xl bg-primary px-4 py-2 font-display font-extrabold text-primary-foreground shadow-toy">
+                  <Link
+                    to="/world/$id"
+                    params={{ id: w.id }}
+                    preload="intent"
+                    className="mt-5 inline-block rounded-xl bg-primary px-4 py-2 font-display font-extrabold text-primary-foreground shadow-toy"
+                  >
                     ENTER WORLD
-                  </span>
+                  </Link>
                 </div>
-              </button>
+              </div>
             );
           })}
 
@@ -232,10 +246,18 @@ function Worlds() {
         </div>
       </div>
 
-      {creating && <CreateWorldDialog onClose={() => setCreating(false)} />}
+      {creating && <WorldDialog onClose={() => setCreating(false)} />}
+      {editing && (
+        <WorldDialog
+          world={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => setEditing(null)}
+        />
+      )}
     </main>
   );
 }
+
 
 type WorldDraft = {
   id: string;
