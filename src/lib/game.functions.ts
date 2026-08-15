@@ -340,6 +340,24 @@ export const completeTask = createServerFn({ method: "POST" })
     return res.data;
   });
 
+/** Re-roll a finished day with a brand new random order (guarded by a typed safety code in the UI). */
+export const rerollToday = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { taskSetId: string; localDate: string }) =>
+    z.object({ taskSetId: uuid, localDate }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const res = await context.supabase.rpc("reroll_daily_run", {
+      p_task_set_id: data.taskSetId,
+      p_local_date: data.localDate,
+    });
+    if (res.error) {
+      if (res.error.message.includes("RUN_NOT_COMPLETE")) throw new Error("RUN_NOT_COMPLETE");
+      throw new Error("ROLL_FAILED");
+    }
+    return res.data;
+  });
+
 export const getHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { taskSetId: string; page?: number }) =>
@@ -348,11 +366,14 @@ export const getHistory = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const pageSize = 10;
     const from = data.page * pageSize;
+    // The travel log only keeps the last 30 days — older runs are pruned server-side.
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const res = await context.supabase
       .from("daily_runs")
       .select("id, local_date, sequence, current_index, completed_at", { count: "exact" })
       .eq("task_set_id", data.taskSetId)
       .eq("user_id", context.userId)
+      .gte("local_date", since)
       .order("local_date", { ascending: false })
       .range(from, from + pageSize - 1);
     if (res.error) throw new Error(res.error.message);
