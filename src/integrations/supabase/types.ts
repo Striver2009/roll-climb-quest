@@ -95,6 +95,7 @@ export type Database = {
         Row: {
           created_at: string
           current_streak: number
+          custom_color: string | null
           emoji: string
           id: string
           last_completed_date: string | null
@@ -107,6 +108,7 @@ export type Database = {
         Insert: {
           created_at?: string
           current_streak?: number
+          custom_color?: string | null
           emoji?: string
           id?: string
           last_completed_date?: string | null
@@ -119,6 +121,7 @@ export type Database = {
         Update: {
           created_at?: string
           current_streak?: number
+          custom_color?: string | null
           emoji?: string
           id?: string
           last_completed_date?: string | null
