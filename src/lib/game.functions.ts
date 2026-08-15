@@ -208,18 +208,20 @@ export const addTask = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const owned = await supabase
-      .from("task_sets")
-      .select("id")
-      .eq("id", data.taskSetId)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const [owned, count] = await Promise.all([
+      supabase
+        .from("task_sets")
+        .select("id")
+        .eq("id", data.taskSetId)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase
+        .from("tasks")
+        .select("id", { count: "exact", head: true })
+        .eq("task_set_id", data.taskSetId),
+    ]);
     if (!owned.data) throw new Error("WORLD_NOT_FOUND");
 
-    const count = await supabase
-      .from("tasks")
-      .select("id", { count: "exact", head: true })
-      .eq("task_set_id", data.taskSetId);
 
     const res = await supabase
       .from("tasks")
