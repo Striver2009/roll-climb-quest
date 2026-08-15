@@ -9,7 +9,9 @@ import { Dice3D } from "@/components/game/Dice3D";
 import { Confetti } from "@/components/game/Confetti";
 import { MountainScene } from "@/components/game/MountainScene";
 import type { EnvName } from "@/components/game/WeatherLayer";
+import { WorldDialog } from "@/components/game/WorldDialog";
 import { useAuth } from "@/hooks/useAuth";
+import type { Database } from "@/integrations/supabase/types";
 import { gameAudio } from "@/lib/audio";
 import { localDateString, msUntilLocalMidnight, prettyDate } from "@/lib/localdate";
 import {
@@ -47,6 +49,7 @@ export const Route = createFileRoute("/world/$id")({
 });
 
 type Tab = "climb" | "missions" | "history";
+type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 function WorldPage() {
   const { id } = Route.useParams();
@@ -74,17 +77,30 @@ function WorldPage() {
     return () => window.clearTimeout(t);
   }, [today]);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const worldKey = useMemo(() => ["world", id, today] as const, [id, today]);
+
   const settings = useQuery({
     queryKey: ["settings"],
     queryFn: () => fetchSettings({}),
     enabled: Boolean(session),
+    staleTime: 5 * 60_000,
   });
 
   const world = useQuery({
-    queryKey: ["world", id, today],
+    queryKey: worldKey,
     queryFn: () => fetchWorld({ data: { taskSetId: id, localDate: today } }),
     enabled: Boolean(session),
+    placeholderData: (prev) => prev,
   });
+
+  type WorldData = NonNullable<typeof world.data>;
+  const patchWorld = useCallback(
+    (fn: (old: WorldData) => WorldData) => {
+      qc.setQueryData(worldKey, (old: WorldData | undefined) => (old ? fn(old) : old));
+    },
+    [qc, worldKey],
+  );
 
   const motion = (settings.data?.animation_mode ?? "full") as "full" | "reduced" | "off";
   const env = (settings.data?.environment ?? "spring") as EnvName;
@@ -112,13 +128,14 @@ function WorldPage() {
       setPhase("rolling");
       gameAudio.diceRoll();
     },
-    onSuccess: async () => {
-      await new Promise((r) => setTimeout(r, motion === "off" ? 0 : 1150));
+    onSuccess: async (runRow) => {
+      await new Promise((r) => setTimeout(r, motion === "off" ? 0 : 620));
       setPhase("landing");
       gameAudio.diceReveal();
-      await qc.invalidateQueries({ queryKey: ["world", id] });
-      await qc.invalidateQueries({ queryKey: ["worlds"] });
-      window.setTimeout(() => setPhase("idle"), 700);
+      // Write the server's locked route straight into the cache — no extra round trip.
+      patchWorld((old) => ({ ...old, run: runRow as WorldData["run"] }));
+      void qc.invalidateQueries({ queryKey: ["worlds"] });
+      window.setTimeout(() => setPhase("idle"), 450);
     },
     onError: (e: Error) => {
       setPhase("idle");
@@ -133,16 +150,31 @@ function WorldPage() {
 
   const completeMut = useMutation({
     mutationFn: (taskId: string) => complete({ data: { dailyRunId: run!.id, taskId } }),
-    onSuccess: async (_d, taskId) => {
+    onMutate: () => {
+      // Move the climber immediately; the server row confirms right after.
       const wasLast = currentIndex + 1 >= sequence.length;
       gameAudio.taskComplete();
       if (!wasLast) gameAudio.unlock();
-      await qc.invalidateQueries({ queryKey: ["world", id] });
-      await qc.invalidateQueries({ queryKey: ["worlds"] });
-      void taskId;
+      patchWorld((old) =>
+        old.run
+          ? {
+              ...old,
+              run: {
+                ...old.run,
+                current_index: old.run.current_index + 1,
+                completed_at: wasLast ? new Date().toISOString() : old.run.completed_at,
+              },
+            }
+          : old,
+      );
+    },
+    onSuccess: (runRow) => {
+      patchWorld((old) => ({ ...old, run: runRow as WorldData["run"] }));
+      void qc.invalidateQueries({ queryKey: ["worlds"] });
     },
     onError: (e: Error) => {
       gameAudio.error();
+      void qc.invalidateQueries({ queryKey: worldKey });
       toast.error(
         e.message === "TASK_LOCKED"
           ? "🔒 Finish the current checkpoint first — no skipping the trail!"
@@ -175,7 +207,7 @@ function WorldPage() {
     [currentIndex],
   );
 
-  if (loading || world.isLoading || settings.isLoading)
+  if (loading || (world.isLoading && !world.data))
     return <Loading label="Scouting the mountain..." />;
 
   if (!session)
@@ -210,7 +242,10 @@ function WorldPage() {
   return (
     <main
       className={`theme-${w.theme} relative min-h-screen px-3 pb-24 pt-5 sm:px-5`}
-      style={{ background: "var(--color-background)" }}
+      style={{
+        background: "var(--color-background)",
+        ["--world-base" as string]: w.custom_color ?? undefined,
+      }}
     >
       <Confetti fire={confetti} motion={motion} />
 
@@ -233,6 +268,14 @@ function WorldPage() {
             {w.current_streak > 0 && (
               <span className="panel px-3 py-1 text-sm font-bold">🔥 {w.current_streak}</span>
             )}
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              aria-label="Edit this study world"
+              className="rounded-xl border-2 border-border bg-card px-3 py-2 font-display font-bold shadow-card"
+            >
+              ✏️
+            </button>
             <Link
               to="/settings"
               className="rounded-xl border-2 border-border bg-card px-3 py-2 font-display font-bold shadow-card"
@@ -378,8 +421,9 @@ function WorldPage() {
             worldName={w.name}
             tasks={tasks}
             locked={sequence.length > 0}
+            patchTasks={(fn) => patchWorld((old) => ({ ...old, tasks: fn(old.tasks) }))}
             onChanged={() => {
-              void qc.invalidateQueries({ queryKey: ["world", id] });
+              void qc.invalidateQueries({ queryKey: worldKey });
               void qc.invalidateQueries({ queryKey: ["worlds"] });
             }}
             onDeleted={() => void navigate({ to: "/" })}
@@ -399,6 +443,19 @@ function WorldPage() {
             {detail < currentIndex ? "✓ Completed today" : "🎯 Current mission"}
           </p>
         </Modal>
+      )}
+
+      {editOpen && (
+        <WorldDialog
+          world={{
+            id: w.id,
+            name: w.name,
+            emoji: w.emoji,
+            theme: w.theme,
+            custom_color: w.custom_color,
+          }}
+          onClose={() => setEditOpen(false)}
+        />
       )}
 
       {summitOpen && (
@@ -428,13 +485,15 @@ function MissionsTab({
   worldName,
   tasks,
   locked,
+  patchTasks,
   onChanged,
   onDeleted,
 }: {
   taskSetId: string;
   worldName: string;
-  tasks: { id: string; title: string; description: string | null; is_active: boolean }[];
+  tasks: Task[];
   locked: boolean;
+  patchTasks: (fn: (tasks: Task[]) => Task[]) => void;
   onChanged: () => void;
   onDeleted: () => void;
 }) {
@@ -446,18 +505,23 @@ function MissionsTab({
   const [title, setTitle] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Every mission edit paints instantly, then syncs in the background.
   const mut = useMutation({
     mutationFn: async (fn: () => Promise<unknown>) => fn(),
     onSuccess: () => onChanged(),
-    onError: () => toast.error("🏕️ Our mountain camp is temporarily unavailable."),
+    onError: () => {
+      onChanged();
+      toast.error("🏕️ Our mountain camp is temporarily unavailable.");
+    },
   });
 
   const move = (index: number, dir: -1 | 1) => {
-    const ids = tasks.map((t) => t.id);
     const j = index + dir;
-    if (j < 0 || j >= ids.length) return;
-    [ids[index], ids[j]] = [ids[j]!, ids[index]!];
-    mut.mutate(() => reorder({ data: { taskSetId, ids } }));
+    if (j < 0 || j >= tasks.length) return;
+    const next = [...tasks];
+    [next[index], next[j]] = [next[j]!, next[index]!];
+    patchTasks(() => next);
+    mut.mutate(() => reorder({ data: { taskSetId, ids: next.map((t) => t.id) } }));
   };
 
   return (
@@ -486,6 +550,20 @@ function MissionsTab({
           onClick={() => {
             const t = title.trim();
             setTitle("");
+            patchTasks((list) => [
+              ...list,
+              {
+                task_set_id: taskSetId,
+                user_id: "",
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                id: `temp-${Date.now()}`,
+                title: t,
+                description: null,
+                is_active: true,
+                position: list.length,
+              },
+            ]);
             mut.mutate(() => add({ data: { taskSetId, title: t } }));
           }}
           className="rounded-xl bg-primary px-5 py-3 font-display font-extrabold text-primary-foreground shadow-toy disabled:opacity-50"
@@ -512,7 +590,12 @@ function MissionsTab({
             <span className="flex-1 truncate font-bold">{t.title}</span>
             <button
               type="button"
-              onClick={() => mut.mutate(() => patch({ data: { id: t.id, isActive: !t.is_active } }))}
+              onClick={() => {
+                patchTasks((list) =>
+                  list.map((x) => (x.id === t.id ? { ...x, is_active: !x.is_active } : x)),
+                );
+                mut.mutate(() => patch({ data: { id: t.id, isActive: !t.is_active } }));
+              }}
               className="rounded-lg bg-muted px-2 py-1 text-xs font-bold"
             >
               {t.is_active ? "Pause" : "Activate"}
@@ -520,7 +603,10 @@ function MissionsTab({
             <button
               type="button"
               aria-label={`Delete ${t.title}`}
-              onClick={() => mut.mutate(() => remove({ data: { id: t.id } }))}
+              onClick={() => {
+                patchTasks((list) => list.filter((x) => x.id !== t.id));
+                mut.mutate(() => remove({ data: { id: t.id } }));
+              }}
               className="rounded-lg bg-destructive/10 px-2 py-1 text-xs font-bold text-destructive"
             >
               Delete

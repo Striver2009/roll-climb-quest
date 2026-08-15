@@ -1,0 +1,2 @@
+ALTER TABLE public.task_sets ADD COLUMN IF NOT EXISTS custom_color TEXT;
+ALTER TABLE public.task_sets ADD CONSTRAINT task_sets_custom_color_hex CHECK (custom_color IS NULL OR custom_color ~* '^#[0-9a-f]{6}$');

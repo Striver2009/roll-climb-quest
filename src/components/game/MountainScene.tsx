@@ -22,6 +22,9 @@ export function MountainScene({
   onCheckpointClick,
 }: Props) {
   const points = useMemo(() => checkpointPositions(sequence.length), [sequence.length]);
+  // Changes whenever the dice reshuffles the route → replays the draw-in animation.
+  const routeKey = useMemo(() => sequence.map((s) => s.id).join("|"), [sequence]);
+  const animate = motion === "full";
   const path = useMemo(() => trailPath(points), [points]);
   const done = currentIndex >= sequence.length;
   const mascot = done ? SUMMIT_POINT : (points[currentIndex] ?? START_POINT);
@@ -47,7 +50,8 @@ export function MountainScene({
         style={{
           transform: camera,
           transformOrigin: "50% 100%",
-          transition: motion === "off" ? "none" : "transform 900ms cubic-bezier(.4,1.2,.4,1)",
+          transition: motion === "off" ? "none" : "transform 700ms cubic-bezier(.35,1.1,.35,1)",
+          willChange: "transform",
         }}
       >
         {/* mountain backdrop */}
@@ -78,7 +82,13 @@ export function MountainScene({
         </svg>
 
         {/* winding trail */}
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
+        <svg
+          key={`trail-${routeKey}`}
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="absolute inset-0 h-full w-full"
+          aria-hidden
+        >
           <path
             d={path}
             fill="none"
@@ -86,6 +96,8 @@ export function MountainScene({
             strokeWidth="7"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
+            className={animate ? "anim-trail-draw" : undefined}
+            style={animate ? { strokeDasharray: 400 } : undefined}
           />
           <path
             d={path}
@@ -95,6 +107,8 @@ export function MountainScene({
             strokeLinecap="round"
             strokeDasharray="1 6"
             vectorEffect="non-scaling-stroke"
+            className={animate ? "anim-fade-in" : undefined}
+            style={animate ? { animationDelay: "500ms" } : undefined}
           />
         </svg>
 
@@ -132,10 +146,20 @@ export function MountainScene({
               aria-label={`Checkpoint ${i + 1}: ${item.title} — ${
                 state === "done" ? "completed" : state === "current" ? "current mission" : "locked"
               }`}
-              className="absolute -translate-x-1/2 -translate-y-1/2 focus-visible:z-30"
-              style={{ left: `${p.x}%`, top: `${p.y}%`, zIndex: state === "current" ? 20 : 10 }}
+              className="absolute focus-visible:z-30"
+              style={{
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                zIndex: state === "current" ? 20 : 10,
+                transform: "translate(-50%,-50%)",
+                willChange: "transform",
+              }}
             >
-              <span className="relative flex flex-col items-center gap-1">
+              <span
+                key={`cp-${routeKey}-${i}`}
+                className={`relative flex flex-col items-center gap-1 ${animate ? "anim-cp-drop" : ""}`}
+                style={animate ? ({ ["--cp-delay" as string]: `${i * 80}ms` }) : undefined}
+              >
                 {state === "current" && motion !== "off" && (
                   <span
                     aria-hidden
@@ -198,7 +222,9 @@ export function MountainScene({
             width: "16%",
             maxWidth: 110,
             transform: "translate(-50%,-50%)",
-            transition: motion === "off" ? "none" : "left 900ms ease-in-out, top 900ms ease-in-out",
+            transition:
+              motion === "off" ? "none" : "left 700ms cubic-bezier(.32,.9,.3,1), top 700ms cubic-bezier(.32,.9,.3,1)",
+            willChange: "left, top",
             filter: "drop-shadow(0 8px 10px oklch(0.3 0.06 20 / .45))",
             zIndex: 25,
           }}
