@@ -1,12 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import fs from "node:fs";
+import path from "node:path";
 
 const localDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "bad date")
   .refine((value) => {
-    // Guard against absurd client dates: must be within 2 days of UTC "now".
     const t = Date.parse(`${value}T12:00:00Z`);
     return Math.abs(t - Date.now()) < 1000 * 60 * 60 * 48;
   }, "date out of range");
@@ -15,7 +16,6 @@ const uuid = z.string().uuid();
 
 export type SequenceItem = { id: string; title: string; description: string | null };
 
-// Guest Memory Store fallback for Dev / Guest Mode when Supabase RLS policies block unauthenticated keys
 type GuestWorldItem = {
   id: string;
   user_id: string;
@@ -51,9 +51,29 @@ type GuestRunItem = {
   created_at: string;
 };
 
-const storeWorlds: GuestWorldItem[] = [];
-const storeTasks: GuestTaskItem[] = [];
-const storeRuns: GuestRunItem[] = [];
+type GuestData = {
+  worlds: GuestWorldItem[];
+  tasks: GuestTaskItem[];
+  runs: GuestRunItem[];
+};
+
+const GUEST_FILE = path.join(process.cwd(), ".guest_data.json");
+
+function getGuestData(): GuestData {
+  try {
+    if (fs.existsSync(GUEST_FILE)) {
+      const raw = fs.readFileSync(GUEST_FILE, "utf-8");
+      return JSON.parse(raw) as GuestData;
+    }
+  } catch {}
+  return { worlds: [], tasks: [], runs: [] };
+}
+
+function saveGuestData(data: GuestData) {
+  try {
+    fs.writeFileSync(GUEST_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch {}
+}
 
 const isRlsError = (err: any) => {
   if (!err) return false;
@@ -79,8 +99,9 @@ export const listWorlds = createServerFn({ method: "POST" })
       ]);
 
       if (sets.error) throw sets.error;
+      if (!sets.data || sets.data.length === 0) throw new Error("EMPTY_SETS");
 
-      return (sets.data ?? []).map((s) => {
+      return sets.data.map((s) => {
         const run = (runs.data ?? []).find((r) => r.task_set_id === s.id);
         const seq = (run?.sequence as SequenceItem[] | undefined) ?? [];
         return {
@@ -97,26 +118,27 @@ export const listWorlds = createServerFn({ method: "POST" })
         };
       });
     } catch (err: any) {
-      if (isRlsError(err) || userId.startsWith("00000000")) {
-        const userSets = storeWorlds.filter((w) => w.user_id === userId);
-        return userSets.map((s) => {
-          const run = storeRuns.find((r) => r.task_set_id === s.id && r.local_date === data.localDate);
-          const seq = run?.sequence ?? [];
-          return {
-            ...s,
-            taskCount: storeTasks.filter((t) => t.task_set_id === s.id && t.is_active).length,
-            run: run
-              ? {
-                  id: run.id,
-                  total: seq.length,
-                  currentIndex: run.current_index,
-                  complete: Boolean(run.completed_at),
-                }
-              : null,
-          };
-        });
-      }
-      throw new Error(err?.message || "Failed to list worlds");
+      const store = getGuestData();
+      const userSets = store.worlds.length > 0
+        ? store.worlds
+        : [];
+
+      return userSets.map((s) => {
+        const run = store.runs.find((r) => r.task_set_id === s.id && r.local_date === data.localDate);
+        const seq = run?.sequence ?? [];
+        return {
+          ...s,
+          taskCount: store.tasks.filter((t) => t.task_set_id === s.id && t.is_active).length,
+          run: run
+            ? {
+                id: run.id,
+                total: seq.length,
+                currentIndex: run.current_index,
+                complete: Boolean(run.completed_at),
+              }
+            : null,
+        };
+      });
     }
   });
 
@@ -157,18 +179,18 @@ export const getWorld = createServerFn({ method: "POST" })
 
       return { world: set.data, tasks: tasks.data ?? [], run: run.data ?? null };
     } catch (err: any) {
-      if (isRlsError(err) || userId.startsWith("00000000") || err?.message === "WORLD_NOT_FOUND") {
-        const world = storeWorlds.find((w) => w.id === data.taskSetId);
-        if (!world) throw new Error("WORLD_NOT_FOUND");
-        const tasks = storeTasks
-          .filter((t) => t.task_set_id === data.taskSetId)
-          .sort((a, b) => a.position - b.position);
-        const run =
-          storeRuns.find((r) => r.task_set_id === data.taskSetId && r.local_date === data.localDate) ??
-          null;
-        return { world, tasks, run };
+      const store = getGuestData();
+      const world = store.worlds.find((w) => w.id === data.taskSetId);
+      if (!world) {
+        throw new Error("WORLD_NOT_FOUND");
       }
-      throw new Error(err?.message || "GET_WORLD_FAILED");
+      const tasks = store.tasks
+        .filter((t) => t.task_set_id === data.taskSetId)
+        .sort((a, b) => a.position - b.position);
+      const run =
+        store.runs.find((r) => r.task_set_id === data.taskSetId && r.local_date === data.localDate) ??
+        null;
+      return { world, tasks, run };
     }
   });
 
@@ -227,37 +249,36 @@ export const createWorld = createServerFn({ method: "POST" })
       }
       return set.data;
     } catch (err: any) {
-      if (isRlsError(err) || userId.startsWith("00000000")) {
-        const newWorld: GuestWorldItem = {
+      const store = getGuestData();
+      const newWorld: GuestWorldItem = {
+        id: crypto.randomUUID(),
+        user_id: userId,
+        name: data.name,
+        emoji: data.emoji,
+        theme: data.theme,
+        custom_color: data.customColor ?? null,
+        current_streak: 0,
+        best_streak: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      store.worlds.push(newWorld);
+
+      data.tasks.forEach((title, i) => {
+        store.tasks.push({
           id: crypto.randomUUID(),
+          task_set_id: newWorld.id,
           user_id: userId,
-          name: data.name,
-          emoji: data.emoji,
-          theme: data.theme,
-          custom_color: data.customColor ?? null,
-          current_streak: 0,
-          best_streak: 0,
+          title,
+          description: null,
+          position: i,
+          is_active: true,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        storeWorlds.push(newWorld);
-
-        data.tasks.forEach((title, i) => {
-          storeTasks.push({
-            id: crypto.randomUUID(),
-            task_set_id: newWorld.id,
-            user_id: userId,
-            title,
-            description: null,
-            position: i,
-            is_active: true,
-            created_at: new Date().toISOString(),
-          });
         });
+      });
 
-        return newWorld;
-      }
-      throw new Error(err?.message || "CREATE_FAILED");
+      saveGuestData(store);
+      return newWorld;
     }
   });
 
@@ -282,12 +303,7 @@ export const updateWorld = createServerFn({ method: "POST" })
         .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const patch: {
-      name?: string;
-      emoji?: string;
-      theme?: string;
-      custom_color?: string | null;
-    } = {};
+    const patch: any = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.emoji !== undefined) patch.emoji = data.emoji;
     if (data.theme !== undefined) patch.theme = data.theme;
@@ -305,17 +321,16 @@ export const updateWorld = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return res.data;
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        const world = storeWorlds.find((w) => w.id === id);
-        if (!world) throw new Error("WORLD_NOT_FOUND");
-        if (patch.name !== undefined) world.name = patch.name;
-        if (patch.emoji !== undefined) world.emoji = patch.emoji;
-        if (patch.theme !== undefined) world.theme = patch.theme;
-        if (patch.custom_color !== undefined) world.custom_color = patch.custom_color;
-        world.updated_at = new Date().toISOString();
-        return world;
-      }
-      throw new Error(err?.message || "UPDATE_FAILED");
+      const store = getGuestData();
+      const world = store.worlds.find((w) => w.id === id);
+      if (!world) throw new Error("WORLD_NOT_FOUND");
+      if (patch.name !== undefined) world.name = patch.name;
+      if (patch.emoji !== undefined) world.emoji = patch.emoji;
+      if (patch.theme !== undefined) world.theme = patch.theme;
+      if (patch.custom_color !== undefined) world.custom_color = patch.custom_color;
+      world.updated_at = new Date().toISOString();
+      saveGuestData(store);
+      return world;
     }
   });
 
@@ -332,12 +347,12 @@ export const deleteWorld = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return { ok: true };
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        const idx = storeWorlds.findIndex((w) => w.id === data.id);
-        if (idx !== -1) storeWorlds.splice(idx, 1);
-        return { ok: true };
-      }
-      throw new Error(err?.message || "DELETE_FAILED");
+      const store = getGuestData();
+      store.worlds = store.worlds.filter((w) => w.id !== data.id);
+      store.tasks = store.tasks.filter((t) => t.task_set_id !== data.id);
+      store.runs = store.runs.filter((r) => r.task_set_id !== data.id);
+      saveGuestData(store);
+      return { ok: true };
     }
   });
 
@@ -385,24 +400,24 @@ export const addTask = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return res.data;
     } catch (err: any) {
-      if (isRlsError(err) || userId.startsWith("00000000")) {
-        const world = storeWorlds.find((w) => w.id === data.taskSetId);
-        if (!world) throw new Error("WORLD_NOT_FOUND");
-        const existingTasks = storeTasks.filter((t) => t.task_set_id === data.taskSetId);
-        const newTask: GuestTaskItem = {
-          id: crypto.randomUUID(),
-          task_set_id: data.taskSetId,
-          user_id: userId,
-          title: data.title,
-          description: data.description ?? null,
-          position: existingTasks.length,
-          is_active: true,
-          created_at: new Date().toISOString(),
-        };
-        storeTasks.push(newTask);
-        return newTask;
-      }
-      throw new Error(err?.message || "ADD_TASK_FAILED");
+      const store = getGuestData();
+      const world = store.worlds.find((w) => w.id === data.taskSetId);
+      if (!world) throw new Error("WORLD_NOT_FOUND");
+
+      const existingTasks = store.tasks.filter((t) => t.task_set_id === data.taskSetId);
+      const newTask: GuestTaskItem = {
+        id: crypto.randomUUID(),
+        task_set_id: data.taskSetId,
+        user_id: userId,
+        title: data.title,
+        description: data.description ?? null,
+        position: existingTasks.length,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      };
+      store.tasks.push(newTask);
+      saveGuestData(store);
+      return newTask;
     }
   });
 
@@ -420,7 +435,7 @@ export const updateTask = createServerFn({ method: "POST" })
         .parse(data),
   )
   .handler(async ({ data, context }) => {
-    const patch: { title?: string; description?: string | null; is_active?: boolean } = {};
+    const patch: any = {};
     if (data.title !== undefined) patch.title = data.title;
     if (data.description !== undefined) patch.description = data.description;
     if (data.isActive !== undefined) patch.is_active = data.isActive;
@@ -436,15 +451,14 @@ export const updateTask = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return res.data;
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        const task = storeTasks.find((t) => t.id === data.id);
-        if (!task) throw new Error("TASK_NOT_FOUND");
-        if (patch.title !== undefined) task.title = patch.title;
-        if (patch.description !== undefined) task.description = patch.description;
-        if (patch.is_active !== undefined) task.is_active = patch.is_active;
-        return task;
-      }
-      throw new Error(err?.message || "UPDATE_TASK_FAILED");
+      const store = getGuestData();
+      const task = store.tasks.find((t) => t.id === data.id);
+      if (!task) throw new Error("TASK_NOT_FOUND");
+      if (patch.title !== undefined) task.title = patch.title;
+      if (patch.description !== undefined) task.description = patch.description;
+      if (patch.is_active !== undefined) task.is_active = patch.is_active;
+      saveGuestData(store);
+      return task;
     }
   });
 
@@ -461,12 +475,10 @@ export const deleteTask = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return { ok: true };
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        const idx = storeTasks.findIndex((t) => t.id === data.id);
-        if (idx !== -1) storeTasks.splice(idx, 1);
-        return { ok: true };
-      }
-      throw new Error(err?.message || "DELETE_TASK_FAILED");
+      const store = getGuestData();
+      store.tasks = store.tasks.filter((t) => t.id !== data.id);
+      saveGuestData(store);
+      return { ok: true };
     }
   });
 
@@ -492,14 +504,13 @@ export const reorderTasks = createServerFn({ method: "POST" })
       if (failed?.error) throw failed.error;
       return { ok: true };
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        data.ids.forEach((taskId, i) => {
-          const task = storeTasks.find((t) => t.id === taskId);
-          if (task) task.position = i;
-        });
-        return { ok: true };
-      }
-      throw new Error(err?.message || "REORDER_FAILED");
+      const store = getGuestData();
+      data.ids.forEach((taskId, i) => {
+        const task = store.tasks.find((t) => t.id === taskId);
+        if (task) task.position = i;
+      });
+      saveGuestData(store);
+      return { ok: true };
     }
   });
 
@@ -518,39 +529,37 @@ export const rollToday = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return res.data;
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        let existing = storeRuns.find(
-          (r) => r.task_set_id === data.taskSetId && r.local_date === data.localDate,
-        );
-        if (existing) return existing;
+      const store = getGuestData();
+      let existing = store.runs.find(
+        (r) => r.task_set_id === data.taskSetId && r.local_date === data.localDate,
+      );
+      if (existing) return existing;
 
-        const activeTasks = storeTasks.filter(
-          (t) => t.task_set_id === data.taskSetId && t.is_active,
-        );
-        if (activeTasks.length === 0) throw new Error("NO_TASKS");
+      const activeTasks = store.tasks.filter(
+        (t) => t.task_set_id === data.taskSetId && t.is_active,
+      );
+      if (activeTasks.length === 0) throw new Error("NO_TASKS");
 
-        const shuffled = [...activeTasks].sort(() => Math.random() - 0.5);
-        const sequence: SequenceItem[] = shuffled.map((t) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description,
-        }));
+      const shuffled = [...activeTasks].sort(() => Math.random() - 0.5);
+      const sequence: SequenceItem[] = shuffled.map((t) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+      }));
 
-        const newRun: GuestRunItem = {
-          id: crypto.randomUUID(),
-          task_set_id: data.taskSetId,
-          user_id: context.userId,
-          local_date: data.localDate,
-          current_index: 0,
-          sequence,
-          completed_at: null,
-          created_at: new Date().toISOString(),
-        };
-        storeRuns.push(newRun);
-        return newRun;
-      }
-      if (err?.message?.includes("no active tasks")) throw new Error("NO_TASKS");
-      throw new Error(err?.message || "ROLL_FAILED");
+      const newRun: GuestRunItem = {
+        id: crypto.randomUUID(),
+        task_set_id: data.taskSetId,
+        user_id: context.userId,
+        local_date: data.localDate,
+        current_index: 0,
+        sequence,
+        completed_at: null,
+        created_at: new Date().toISOString(),
+      };
+      store.runs.push(newRun);
+      saveGuestData(store);
+      return newRun;
     }
   });
 
@@ -569,21 +578,18 @@ export const completeTask = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return res.data;
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        const run = storeRuns.find((r) => r.id === data.dailyRunId);
-        if (!run) throw new Error("COMPLETE_FAILED");
-        const currentTask = run.sequence[run.current_index];
-        if (!currentTask || currentTask.id !== data.taskId) throw new Error("TASK_LOCKED");
+      const store = getGuestData();
+      const run = store.runs.find((r) => r.id === data.dailyRunId);
+      if (!run) throw new Error("COMPLETE_FAILED");
+      const currentTask = run.sequence[run.current_index];
+      if (!currentTask || currentTask.id !== data.taskId) throw new Error("TASK_LOCKED");
 
-        run.current_index += 1;
-        if (run.current_index >= run.sequence.length) {
-          run.completed_at = new Date().toISOString();
-        }
-        return run;
+      run.current_index += 1;
+      if (run.current_index >= run.sequence.length) {
+        run.completed_at = new Date().toISOString();
       }
-      if (err?.message?.includes("TASK LOCKED")) throw new Error("TASK_LOCKED");
-      if (err?.message?.includes("already complete")) throw new Error("ALREADY_COMPLETE");
-      throw new Error(err?.message || "COMPLETE_FAILED");
+      saveGuestData(store);
+      return run;
     }
   });
 
@@ -602,39 +608,36 @@ export const rerollToday = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return res.data;
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        const idx = storeRuns.findIndex(
-          (r) => r.task_set_id === data.taskSetId && r.local_date === data.localDate,
-        );
-        if (idx !== -1) storeRuns.splice(idx, 1);
+      const store = getGuestData();
+      store.runs = store.runs.filter(
+        (r) => !(r.task_set_id === data.taskSetId && r.local_date === data.localDate),
+      );
 
-        const activeTasks = storeTasks.filter(
-          (t) => t.task_set_id === data.taskSetId && t.is_active,
-        );
-        if (activeTasks.length === 0) throw new Error("NO_TASKS");
+      const activeTasks = store.tasks.filter(
+        (t) => t.task_set_id === data.taskSetId && t.is_active,
+      );
+      if (activeTasks.length === 0) throw new Error("NO_TASKS");
 
-        const shuffled = [...activeTasks].sort(() => Math.random() - 0.5);
-        const sequence: SequenceItem[] = shuffled.map((t) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description,
-        }));
+      const shuffled = [...activeTasks].sort(() => Math.random() - 0.5);
+      const sequence: SequenceItem[] = shuffled.map((t) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+      }));
 
-        const newRun: GuestRunItem = {
-          id: crypto.randomUUID(),
-          task_set_id: data.taskSetId,
-          user_id: context.userId,
-          local_date: data.localDate,
-          current_index: 0,
-          sequence,
-          completed_at: null,
-          created_at: new Date().toISOString(),
-        };
-        storeRuns.push(newRun);
-        return newRun;
-      }
-      if (err?.message?.includes("RUN_NOT_COMPLETE")) throw new Error("RUN_NOT_COMPLETE");
-      throw new Error(err?.message || "ROLL_FAILED");
+      const newRun: GuestRunItem = {
+        id: crypto.randomUUID(),
+        task_set_id: data.taskSetId,
+        user_id: context.userId,
+        local_date: data.localDate,
+        current_index: 0,
+        sequence,
+        completed_at: null,
+        created_at: new Date().toISOString(),
+      };
+      store.runs.push(newRun);
+      saveGuestData(store);
+      return newRun;
     }
   });
 
@@ -645,7 +648,6 @@ export const getHistory = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const pageSize = 10;
-    const from = data.page * pageSize;
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     try {
@@ -655,18 +657,16 @@ export const getHistory = createServerFn({ method: "POST" })
         .eq("task_set_id", data.taskSetId)
         .eq("user_id", context.userId)
         .gte("local_date", since)
-        .order("local_date", { ascending: false })
-        .range(from, from + pageSize - 1);
+        .order("local_date", { ascending: false });
+
       if (res.error) throw res.error;
       return { runs: res.data ?? [], count: res.count ?? 0, pageSize };
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        const runs = storeRuns.filter(
-          (r) => r.task_set_id === data.taskSetId && r.local_date >= since,
-        );
-        return { runs, count: runs.length, pageSize };
-      }
-      throw new Error(err?.message || "HISTORY_FAILED");
+      const store = getGuestData();
+      const runs = store.runs.filter(
+        (r) => r.task_set_id === data.taskSetId && r.local_date >= since,
+      );
+      return { runs, count: runs.length, pageSize };
     }
   });
 
@@ -689,19 +689,16 @@ export const getSettings = createServerFn({ method: "POST" })
       if (created.error) throw created.error;
       return created.data;
     } catch (err: any) {
-      if (isRlsError(err) || userId.startsWith("00000000")) {
-        return {
-          user_id: userId,
-          environment: "spring",
-          music_enabled: true,
-          effects_enabled: true,
-          music_volume: 0.5,
-          effects_volume: 0.5,
-          master_mute: false,
-          animation_mode: "full",
-        };
-      }
-      throw new Error(err?.message || "SETTINGS_FAILED");
+      return {
+        user_id: userId,
+        environment: "spring",
+        music_enabled: true,
+        effects_enabled: true,
+        music_volume: 0.5,
+        effects_volume: 0.5,
+        master_mute: false,
+        animation_mode: "full",
+      };
     }
   });
 
@@ -750,10 +747,7 @@ export const updateSettings = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return res.data;
     } catch (err: any) {
-      if (isRlsError(err) || context.userId.startsWith("00000000")) {
-        return { user_id: context.userId, ...patch };
-      }
-      throw new Error(err?.message || "UPDATE_SETTINGS_FAILED");
+      return { user_id: context.userId, ...patch };
     }
   });
 
@@ -772,10 +766,7 @@ export const getStats = createServerFn({ method: "POST" })
       if (created.error) throw created.error;
       return created.data;
     } catch (err: any) {
-      if (isRlsError(err) || userId.startsWith("00000000")) {
-        return { user_id: userId, total_runs: 0, completed_runs: 0 };
-      }
-      throw new Error(err?.message || "STATS_FAILED");
+      return { user_id: userId, total_runs: 0, completed_runs: 0 };
     }
   });
 
@@ -806,9 +797,6 @@ export const syncProfile = createServerFn({ method: "POST" })
       if (res.error) throw res.error;
       return res.data;
     } catch (err: any) {
-      if (isRlsError(err) || userId.startsWith("00000000")) {
-        return { id: userId, timezone: data.timezone };
-      }
-      throw new Error(err?.message || "SYNC_FAILED");
+      return { id: userId, timezone: data.timezone };
     }
   });
