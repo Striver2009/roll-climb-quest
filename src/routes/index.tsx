@@ -1,13 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import mascotImg from "@/assets/mascot.png";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/useAuth";
-import { createWorld, listWorlds, syncProfile } from "@/lib/game.functions";
+import { createWorld, listWorlds, syncProfile, updateWorld } from "@/lib/game.functions";
 import { localDateString, localTimezone } from "@/lib/localdate";
 import { Loading } from "@/components/game/Loading";
 
@@ -38,9 +38,14 @@ const EMOJIS = ["🎓", "⚛️", "🧪", "🧬", "📐", "🗿", "🚀", "📚"
 function HomePage() {
   const { session, loading } = useAuth();
   const sync = useServerFn(syncProfile);
+  const synced = useRef<string | null>(null);
 
   useEffect(() => {
-    if (session) void sync({ data: { timezone: localTimezone() } }).catch(() => {});
+    // Fire-and-forget, once per user — never blocks the first paint.
+    const uid = session?.user.id ?? null;
+    if (!uid || synced.current === uid) return;
+    synced.current = uid;
+    void sync({ data: { timezone: localTimezone() } }).catch(() => {});
   }, [session, sync]);
 
   if (loading) return <Loading label="Preparing your adventure..." />;
@@ -101,13 +106,15 @@ function Worlds() {
   const fetchWorlds = useServerFn(listWorlds);
   const today = localDateString();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<WorldDraft | null>(null);
 
   const worlds = useQuery({
     queryKey: ["worlds", today],
     queryFn: () => fetchWorlds({ data: { localDate: today } }),
+    placeholderData: (prev) => prev,
   });
 
-  if (worlds.isLoading) return <Loading label="Loading your study worlds..." />;
+  if (worlds.isLoading && !worlds.data) return <Loading label="Loading your study worlds..." />;
   if (worlds.isError)
     return (
       <ErrorState
@@ -289,9 +296,9 @@ export function WorldDialog({
   const [tasks, setTasks] = useState<string[]>(editing ? [] : ["DPP", "Module", "PYQ"]);
   const [draft, setDraft] = useState("");
 
-  const mut = useMutation({
-    mutationFn: () =>
-      editing
+  const mut = useMutation<WorldDraft>({
+    mutationFn: async () =>
+      (editing
         ? update({
             data: {
               id: world!.id,
@@ -309,7 +316,7 @@ export function WorldDialog({
               customColor: theme === "custom" ? color : null,
               tasks: tasks.filter(Boolean),
             },
-          }),
+          })) as Promise<WorldDraft>,
     onSuccess: (saved) => {
       // Update caches in place — no blocking refetch before the UI responds.
       qc.setQueriesData<WorldDraft[]>({ queryKey: ["worlds"] }, (old) =>
