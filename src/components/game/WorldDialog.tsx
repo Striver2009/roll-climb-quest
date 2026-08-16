@@ -3,8 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { CodeConfirm } from "@/components/game/CodeConfirm";
-import { createWorld, deleteWorld, updateWorld } from "@/lib/game.functions";
+import { createWorld, updateWorld } from "@/lib/game.functions";
 
 const EMOJIS = ["\u{1F393}", "\u269B\uFE0F", "\u{1F9EA}", "\u{1F9EC}", "\u{1F4D0}", "\u{1F5FF}", "\u{1F680}", "\u{1F4DA}"];
 const THEMES = ["sakura", "ocean", "ember", "forest", "violet"] as const;
@@ -30,9 +29,7 @@ export function WorldDialog({
   const navigate = useNavigate();
   const create = useServerFn(createWorld);
   const update = useServerFn(updateWorld);
-  const removeWorld = useServerFn(deleteWorld);
   const editing = Boolean(world);
-  const [askDelete, setAskDelete] = useState(false);
 
   const [name, setName] = useState(world?.name ?? "");
   const [emoji, setEmoji] = useState(world?.emoji ?? EMOJIS[0]!);
@@ -78,23 +75,7 @@ export function WorldDialog({
         void navigate({ to: "/world/$id", params: { id: saved.id } });
       }
     },
-    onError: (err: any) => toast.error(err?.message || "🏕️ Our mountain camp is temporarily unavailable."),
-  });
-
-  const del = useMutation({
-    mutationFn: async () => removeWorld({ data: { id: world!.id } }),
-    onSuccess: () => {
-      qc.setQueriesData<WorldDraft[]>({ queryKey: ["worlds"] }, (old) =>
-        old ? old.filter((w) => w.id !== world!.id) : old,
-      );
-      qc.removeQueries({ queryKey: ["world", world!.id] });
-      void qc.invalidateQueries({ queryKey: ["worlds"] });
-      toast.success("🗺️ Study world deleted.");
-      setAskDelete(false);
-      onClose();
-      void navigate({ to: "/" });
-    },
-    onError: () => toast.error("🏕️ Couldn't delete that world."),
+    onError: () => toast.error("🏕️ Our mountain camp is temporarily unavailable."),
   });
 
   return (
@@ -247,33 +228,7 @@ export function WorldDialog({
             {mut.isPending ? "Saving..." : editing ? "SAVE CHANGES" : "CREATE WORLD"}
           </button>
         </div>
-
-        {editing && (
-          <div className="mt-6 border-t-2 border-border pt-4 text-center">
-            <button
-              type="button"
-              onClick={() => setAskDelete(true)}
-              className="text-sm font-bold text-destructive"
-            >
-              🗑️ Delete this study world
-            </button>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Needs a safety code — no accidental deletes.
-            </p>
-          </div>
-        )}
       </div>
-
-      {askDelete && world && (
-        <CodeConfirm
-          title="🗑️ Delete study world?"
-          detail={`“${world.name}”, its missions and its travel log will be gone forever.`}
-          confirmLabel="DELETE FOREVER"
-          pending={del.isPending}
-          onCancel={() => setAskDelete(false)}
-          onConfirm={() => del.mutate()}
-        />
-      )}
     </div>
   );
 }

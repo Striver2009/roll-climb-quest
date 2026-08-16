@@ -54,117 +54,6 @@ function HomePage() {
 
 function LoginScreen() {
   const [busy, setBusy] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
-
-  const handleGuestLogin = async () => {
-    setBusy(true);
-    try {
-      const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
-      if (!anonError && anonData?.session) {
-        toast.success("🎮 Logged in as Guest!");
-        return;
-      }
-
-      let guestEmail = localStorage.getItem("dev_guest_email");
-      let guestPassword = localStorage.getItem("dev_guest_pass");
-
-      if (!guestEmail || !guestPassword) {
-        const rand = Math.random().toString(36).substring(2, 10);
-        guestEmail = `guest_${rand}@explore.local`;
-        guestPassword = `Pass_${rand}_123!`;
-        localStorage.setItem("dev_guest_email", guestEmail);
-        localStorage.setItem("dev_guest_pass", guestPassword);
-      }
-
-      const { data: signData } = await supabase.auth.signInWithPassword({
-        email: guestEmail,
-        password: guestPassword,
-      });
-
-      if (signData?.session) {
-        toast.success("🎮 Logged in as Guest!");
-        return;
-      }
-
-      const { data: upData } = await supabase.auth.signUp({
-        email: guestEmail,
-        password: guestPassword,
-      });
-
-      if (upData?.session) {
-        toast.success("🎮 Logged in as Guest!");
-        return;
-      }
-
-      const validUserId = upData?.user?.id ?? signData?.user?.id ?? "00000000-0000-0000-0000-000000000001";
-      const token = `dev_guest_token_${validUserId}`;
-
-      const guestSession = {
-        access_token: token,
-        token_type: "bearer",
-        expires_in: 3600 * 24 * 365,
-        refresh_token: "dev_guest_refresh",
-        user: {
-          id: validUserId,
-          aud: "authenticated",
-          role: "authenticated",
-          email: guestEmail,
-          app_metadata: { provider: "guest" },
-          user_metadata: { name: "Guest Explorer" },
-          created_at: new Date().toISOString(),
-        },
-      };
-      localStorage.setItem("dev_guest_session", JSON.stringify(guestSession));
-      toast.success("🎮 Logged in as Guest!");
-      window.location.reload();
-    } catch (e) {
-      toast.error("Guest login failed.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      toast.error("Please enter email and password.");
-      return;
-    }
-    setBusy(true);
-    try {
-      if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
-        });
-        if (error) {
-          toast.error(error.message);
-        } else if (data.session) {
-          toast.success("Account created & logged in!");
-        } else {
-          toast.warning("⚠️ Account created! Supabase me 'Confirm Email' ON hai. Dashboard me Email Confirmation OFF karein instant login ke liye.");
-        }
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password.trim(),
-        });
-        if (error) {
-          toast.error(error.message);
-        } else if (data.session) {
-          toast.success("Welcome back!");
-        }
-      }
-    } catch (err: any) {
-      toast.error(err?.message || "Authentication failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <main
       className="grid min-h-screen place-items-center px-4 py-10"
@@ -185,96 +74,23 @@ function LoginScreen() {
           🎲 WELCOME, EXPLORER!
         </h1>
         <p className="mt-2 text-muted-foreground">Your study adventure is waiting.</p>
-
-        <div className="mt-7 space-y-3">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={handleGuestLogin}
-            className="w-full rounded-2xl bg-primary px-6 py-4 font-display text-lg font-extrabold text-primary-foreground shadow-toy transition-transform active:translate-y-1 active:shadow-none disabled:opacity-70"
-          >
-            {busy ? "Opening..." : "⚡ CONTINUE AS GUEST"}
-          </button>
-
-          <button
-            type="button"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                const res = await lovable.auth.signInWithOAuth("google", {
-                  redirect_uri: window.location.origin,
-                });
-                if (res?.error) {
-                  const errMsg = res.error.message || "";
-                  if (errMsg.includes("missing OAuth secret") || errMsg.includes("validation_failed")) {
-                    toast.error("⚠️ Google Auth is not configured in Supabase yet. Use Guest or Email login below!");
-                    setShowEmailForm(true);
-                  } else {
-                    toast.error("🌧️ Could not connect to Google: " + errMsg);
-                  }
-                }
-              } finally {
-                setBusy(false);
-              }
-            }}
-            className="w-full rounded-2xl border-2 border-border bg-card px-6 py-3.5 font-display text-base font-bold text-foreground shadow-card transition-transform active:translate-y-1 active:shadow-none disabled:opacity-70"
-          >
-            🌐 CONTINUE WITH GOOGLE
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowEmailForm((prev) => !prev)}
-            className="text-xs font-bold text-muted-foreground underline hover:text-foreground"
-          >
-            {showEmailForm ? "Hide Email Login" : "✉️ Sign in with Email / Password"}
-          </button>
-        </div>
-
-        {showEmailForm && (
-          <form onSubmit={handleEmailAuth} className="mt-5 space-y-3 text-left">
-            <div>
-              <label className="block text-xs font-extrabold text-muted-foreground mb-1">EMAIL</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="explorer@example.com"
-                className="w-full rounded-xl border-2 border-border bg-background px-4 py-2 text-sm font-bold shadow-card focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-extrabold text-muted-foreground mb-1">PASSWORD</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-xl border-2 border-border bg-background px-4 py-2 text-sm font-bold shadow-card focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full rounded-xl bg-secondary px-4 py-2.5 font-display text-sm font-extrabold text-secondary-foreground shadow-toy active:translate-y-0.5 active:shadow-none disabled:opacity-70"
-            >
-              {busy ? "Processing..." : isSignUp ? "CREATE ACCOUNT" : "SIGN IN"}
-            </button>
-            <div className="text-center pt-1">
-              <button
-                type="button"
-                onClick={() => setIsSignUp((p) => !p)}
-                className="text-xs font-bold text-muted-foreground hover:underline"
-              >
-                {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
-              </button>
-            </div>
-          </form>
-        )}
-
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            const res = await lovable.auth.signInWithOAuth("google", {
+              redirect_uri: window.location.origin,
+            });
+            if (res.error) {
+              setBusy(false);
+              toast.error("🌧️ The connection wandered off. Try again.");
+            }
+          }}
+          className="mt-7 w-full rounded-2xl bg-primary px-6 py-4 font-display text-lg font-extrabold text-primary-foreground shadow-toy transition-transform active:translate-y-1 active:shadow-none disabled:opacity-70"
+        >
+          {busy ? "Opening..." : "CONTINUE WITH GOOGLE"}
+        </button>
         <p className="mt-5 text-xs text-muted-foreground">
           You choose the missions. The dice chooses the path.
         </p>
@@ -329,10 +145,7 @@ function Worlds() {
             </Link>
             <button
               type="button"
-              onClick={() => {
-                localStorage.removeItem("dev_guest_session");
-                void supabase.auth.signOut().then(() => window.location.reload());
-              }}
+              onClick={() => void supabase.auth.signOut()}
               className="rounded-xl border-2 border-border bg-card px-4 py-2 font-display font-bold shadow-card"
             >
               Sign out

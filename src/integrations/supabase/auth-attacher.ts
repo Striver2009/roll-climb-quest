@@ -7,15 +7,7 @@ import { supabase } from './client'
 export const attachSupabaseAuth = createMiddleware({ type: 'function' }).client(
   async ({ next }) => {
     const { data } = await supabase.auth.getSession()
-    let token = data.session?.access_token
-    if (!token && typeof localStorage !== 'undefined') {
-      const devGuest = localStorage.getItem('dev_guest_session')
-      if (devGuest) {
-        try {
-          token = JSON.parse(devGuest).access_token
-        } catch {}
-      }
-    }
+    const token = data.session?.access_token
     return next({
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })

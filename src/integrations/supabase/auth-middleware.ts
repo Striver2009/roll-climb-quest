@@ -67,34 +67,6 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       throw new Error('Unauthorized: No token provided');
     }
 
-    if (token === 'dev_guest_token' || token.startsWith('dev_guest_')) {
-      const guestUserId = token.startsWith('dev_guest_token_')
-        ? token.replace('dev_guest_token_', '')
-        : '00000000-0000-0000-0000-000000000001';
-
-      const supabase = createClient<Database>(
-        SUPABASE_URL!,
-        SUPABASE_PUBLISHABLE_KEY!,
-        {
-          global: {
-            fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY!),
-          },
-          auth: {
-            storage: undefined,
-            persistSession: false,
-            autoRefreshToken: false,
-          },
-        }
-      );
-      return next({
-        context: {
-          supabase,
-          userId: guestUserId,
-          claims: { sub: guestUserId, email: 'guest@explorer.local' },
-        },
-      });
-    }
-
     if (token.split('.').length !== 3) {
       throw new Error('Unauthorized: Invalid token');
     }
