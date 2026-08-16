@@ -245,8 +245,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      build_route: {
+        Args: { p_avoid: Json; p_task_set_id: string; p_user_id: string }
+        Returns: Json
+      }
       complete_current_task: {
         Args: { p_daily_run_id: string; p_task_id: string }
+        Returns: {
+          completed_at: string | null
+          completed_tasks: Json
+          created_at: string
+          current_index: number
+          id: string
+          local_date: string
+          rolled_at: string
+          sequence: Json
+          task_set_id: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "daily_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      prune_daily_runs: {
+        Args: { p_task_set_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      reroll_daily_run: {
+        Args: { p_local_date: string; p_task_set_id: string }
         Returns: {
           completed_at: string | null
           completed_tasks: Json
