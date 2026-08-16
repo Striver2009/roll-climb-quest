@@ -97,6 +97,7 @@ export type Database = {
           current_streak: number
           custom_color: string | null
           emoji: string
+          folder_id: string | null
           id: string
           last_completed_date: string | null
           longest_streak: number
@@ -110,6 +111,7 @@ export type Database = {
           current_streak?: number
           custom_color?: string | null
           emoji?: string
+          folder_id?: string | null
           id?: string
           last_completed_date?: string | null
           longest_streak?: number
@@ -123,6 +125,7 @@ export type Database = {
           current_streak?: number
           custom_color?: string | null
           emoji?: string
+          folder_id?: string | null
           id?: string
           last_completed_date?: string | null
           longest_streak?: number
@@ -131,7 +134,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "task_sets_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "world_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
@@ -235,6 +246,39 @@ export type Database = {
           longest_streak?: number
           total_completed_days?: number
           total_completed_tasks?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      world_folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          emoji: string
+          id: string
+          name: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          emoji?: string
+          id?: string
+          name: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          emoji?: string
+          id?: string
+          name?: string
+          position?: number
           updated_at?: string
           user_id?: string
         }

@@ -1,9 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { createWorld, updateWorld } from "@/lib/game.functions";
+import { createWorld, listFolders, updateWorld } from "@/lib/game.functions";
 
 const EMOJIS = ["\u{1F393}", "\u269B\uFE0F", "\u{1F9EA}", "\u{1F9EC}", "\u{1F4D0}", "\u{1F5FF}", "\u{1F680}", "\u{1F4DA}"];
 const THEMES = ["sakura", "ocean", "ember", "forest", "violet"] as const;
@@ -14,7 +14,9 @@ export type WorldDraft = {
   emoji: string;
   theme: string;
   custom_color: string | null;
+  folder_id?: string | null;
 };
+
 
 export function WorldDialog({
   world,
