@@ -90,6 +90,111 @@ const hexColor = z
   .regex(/^#[0-9a-fA-F]{6}$/, "bad colour")
   .nullable();
 
+const emojiField = z.string().trim().min(1).max(16);
+
+export const listFolders = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const res = await context.supabase
+      .from("world_folders")
+      .select("*")
+      .eq("user_id", context.userId)
+      .order("position")
+      .order("created_at");
+    if (res.error) throw new Error(res.error.message);
+    return res.data ?? [];
+  });
+
+export const createFolder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { name: string; emoji: string; color?: string | null }) =>
+    z
+      .object({
+        name: z.string().trim().min(1).max(40),
+        emoji: emojiField,
+        color: hexColor.optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const count = await supabase
+      .from("world_folders")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    const res = await supabase
+      .from("world_folders")
+      .insert({
+        user_id: userId,
+        name: data.name,
+        emoji: data.emoji,
+        color: data.color ?? null,
+        position: count.count ?? 0,
+      })
+      .select()
+      .single();
+    if (res.error) throw new Error(res.error.message);
+    return res.data;
+  });
+
+export const updateFolder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string; name?: string; emoji?: string; color?: string | null }) =>
+    z
+      .object({
+        id: uuid,
+        name: z.string().trim().min(1).max(40).optional(),
+        emoji: emojiField.optional(),
+        color: hexColor.optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: { name?: string; emoji?: string; color?: string | null } = {};
+    if (data.name !== undefined) patch.name = data.name;
+    if (data.emoji !== undefined) patch.emoji = data.emoji;
+    if (data.color !== undefined) patch.color = data.color;
+    const res = await context.supabase
+      .from("world_folders")
+      .update(patch)
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .select()
+      .single();
+    if (res.error) throw new Error(res.error.message);
+    return res.data;
+  });
+
+export const deleteFolder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string }) => z.object({ id: uuid }).parse(data))
+  .handler(async ({ data, context }) => {
+    const res = await context.supabase
+      .from("world_folders")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (res.error) throw new Error(res.error.message);
+    return { ok: true };
+  });
+
+export const moveWorldToFolder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string; folderId: string | null }) =>
+    z.object({ id: uuid, folderId: uuid.nullable() }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const res = await context.supabase
+      .from("task_sets")
+      .update({ folder_id: data.folderId })
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .select()
+      .single();
+    if (res.error) throw new Error(res.error.message);
+    return res.data;
+  });
+
 export const createWorld = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -98,14 +203,16 @@ export const createWorld = createServerFn({ method: "POST" })
       emoji: string;
       theme: string;
       customColor?: string | null;
+      folderId?: string | null;
       tasks: string[];
     }) =>
       z
         .object({
           name: z.string().trim().min(1).max(60),
-          emoji: z.string().trim().min(1).max(8),
+          emoji: emojiField,
           theme: z.enum(["sakura", "ocean", "ember", "forest", "violet", "custom"]),
           customColor: hexColor.optional(),
+          folderId: uuid.nullable().optional(),
           tasks: z.array(z.string().trim().min(1).max(80)).max(40),
         })
         .parse(data),
@@ -120,6 +227,7 @@ export const createWorld = createServerFn({ method: "POST" })
         emoji: data.emoji,
         theme: data.theme,
         custom_color: data.customColor ?? null,
+        folder_id: data.folderId ?? null,
       })
       .select()
       .single();
@@ -147,14 +255,16 @@ export const updateWorld = createServerFn({ method: "POST" })
       emoji?: string;
       theme?: string;
       customColor?: string | null;
+      folderId?: string | null;
     }) =>
       z
         .object({
           id: uuid,
           name: z.string().trim().min(1).max(60).optional(),
-          emoji: z.string().trim().min(1).max(8).optional(),
+          emoji: emojiField.optional(),
           theme: z.enum(["sakura", "ocean", "ember", "forest", "violet", "custom"]).optional(),
           customColor: hexColor.optional(),
+          folderId: uuid.nullable().optional(),
         })
         .parse(data),
   )
@@ -164,11 +274,13 @@ export const updateWorld = createServerFn({ method: "POST" })
       emoji?: string;
       theme?: string;
       custom_color?: string | null;
+      folder_id?: string | null;
     } = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.emoji !== undefined) patch.emoji = data.emoji;
     if (data.theme !== undefined) patch.theme = data.theme;
     if (data.customColor !== undefined) patch.custom_color = data.customColor;
+    if (data.folderId !== undefined) patch.folder_id = data.folderId;
     const { id } = data;
     const res = await context.supabase
       .from("task_sets")
@@ -180,6 +292,7 @@ export const updateWorld = createServerFn({ method: "POST" })
     if (res.error) throw new Error(res.error.message);
     return res.data;
   });
+
 
 
 export const deleteWorld = createServerFn({ method: "POST" })
