@@ -77,9 +77,8 @@ function SettingsPage() {
       <div className="mx-auto max-w-2xl">
         <div className="flex items-center justify-between gap-3">
           <h1 className="font-display text-3xl font-extrabold text-outline">⚙️ SETTINGS</h1>
-          <Link to="/" className="rounded-xl border-2 border-border bg-card px-4 py-2 font-display font-bold shadow-card">
-            ← Worlds
-          </Link>
+          <BackButton fallback="/" label="Worlds" className="rounded-xl border-2 border-border bg-card px-4 py-2 font-display font-bold shadow-card" />
+
         </div>
 
         <section className="panel mt-6 p-5">
