@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import mascotImg from "@/assets/mascot.png";
+import { BackButton } from "@/components/game/BackButton";
 import { Loading } from "@/components/game/Loading";
 import { Dice3D } from "@/components/game/Dice3D";
 import { Confetti } from "@/components/game/Confetti";

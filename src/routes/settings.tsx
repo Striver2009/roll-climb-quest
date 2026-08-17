@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { getSettings, getStats, updateSettings } from "@/lib/game.functions";
 import { ENVIRONMENTS } from "@/components/game/WeatherLayer";
+import { BackButton } from "@/components/game/BackButton";
 import { Loading } from "@/components/game/Loading";
 import { useAuth } from "@/hooks/useAuth";
 import { gameAudio } from "@/lib/audio";
