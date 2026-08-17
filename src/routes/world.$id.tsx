@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import mascotImg from "@/assets/mascot.png";
+import { BackButton } from "@/components/game/BackButton";
 import { Loading } from "@/components/game/Loading";
 import { Dice3D } from "@/components/game/Dice3D";
 import { Confetti } from "@/components/game/Confetti";
@@ -252,13 +253,8 @@ function WorldPage() {
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="rounded-xl border-2 border-border bg-card px-3 py-2 font-display font-bold shadow-card"
-              aria-label="Back to worlds"
-            >
-              ←
-            </Link>
+            <BackButton fallback="/" label="Worlds" />
+
             <h1 className="font-display text-2xl font-extrabold text-outline sm:text-3xl">
               {w.emoji} {w.name}
             </h1>

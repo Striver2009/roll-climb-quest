@@ -7,10 +7,12 @@ import mascotImg from "@/assets/mascot.png";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/useAuth";
-import { listWorlds, syncProfile } from "@/lib/game.functions";
+import { listFolders, listWorlds, moveWorldToFolder, syncProfile } from "@/lib/game.functions";
 import { localDateString, localTimezone } from "@/lib/localdate";
 import { Loading } from "@/components/game/Loading";
 import { WorldDialog, type WorldDraft } from "@/components/game/WorldDialog";
+import { FolderDialog, type FolderDraft } from "@/components/game/FolderDialog";
+
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -102,14 +104,43 @@ function LoginScreen() {
 function Worlds() {
   const qc = useQueryClient();
   const fetchWorlds = useServerFn(listWorlds);
+  const fetchFolders = useServerFn(listFolders);
+  const moveWorld = useServerFn(moveWorldToFolder);
   const today = localDateString();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<WorldDraft | null>(null);
+  const [folderDialog, setFolderDialog] = useState<FolderDraft | "new" | null>(null);
+  const [activeFolder, setActiveFolder] = useState<string | null>(null); // null = all
 
   const worlds = useQuery({
     queryKey: ["worlds", today],
     queryFn: () => fetchWorlds({ data: { localDate: today } }),
     placeholderData: (prev) => prev,
+    staleTime: 30_000,
+  });
+
+  const folders = useQuery({
+    queryKey: ["folders"],
+    queryFn: () => fetchFolders({}),
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60_000,
+  });
+
+  const move = useMutation({
+    mutationFn: (vars: { id: string; folderId: string | null }) =>
+      moveWorld({ data: vars }),
+    onMutate: (vars) => {
+      // Instant: the card jumps folders before the server answers.
+      qc.setQueriesData<Array<{ id: string; folder_id: string | null }>>(
+        { queryKey: ["worlds"] },
+        (old) =>
+          old ? old.map((w) => (w.id === vars.id ? { ...w, folder_id: vars.folderId } : w)) : old,
+      );
+    },
+    onError: () => {
+      toast.error("🏕️ Could not move that world.");
+      void qc.invalidateQueries({ queryKey: ["worlds"] });
+    },
   });
 
   if (worlds.isLoading && !worlds.data) return <Loading label="Loading your study worlds..." />;
@@ -121,7 +152,20 @@ function Worlds() {
       />
     );
 
-  const list = worlds.data ?? [];
+  const all = worlds.data ?? [];
+  const folderList = folders.data ?? [];
+  const list =
+    activeFolder === null
+      ? all
+      : activeFolder === "unfiled"
+        ? all.filter((w) => !w.folder_id)
+        : all.filter((w) => w.folder_id === activeFolder);
+  const currentFolder = folderList.find((f) => f.id === activeFolder) ?? null;
+
+  const chip = (active: boolean) =>
+    `rounded-full border-2 px-4 py-2 font-display text-sm font-extrabold shadow-card transition-transform active:translate-y-0.5 ${
+      active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card"
+    }`;
 
   return (
     <main
@@ -139,6 +183,7 @@ function Worlds() {
           <div className="flex items-center gap-2">
             <Link
               to="/settings"
+              preload="intent"
               className="rounded-xl border-2 border-border bg-card px-4 py-2 font-display font-bold shadow-card"
             >
               ⚙️ Settings
@@ -153,9 +198,51 @@ function Worlds() {
           </div>
         </header>
 
-        {list.length === 0 && !creating && (
+        <nav aria-label="Folders" className="mt-6 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setActiveFolder(null)} className={chip(activeFolder === null)}>
+            🗂️ All ({all.length})
+          </button>
+          {folderList.map((f) => (
+            <span key={f.id} className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveFolder(f.id)}
+                className={chip(activeFolder === f.id)}
+                style={f.color ? { borderColor: f.color } : undefined}
+              >
+                {f.emoji} {f.name} ({all.filter((w) => w.folder_id === f.id).length})
+              </button>
+              {activeFolder === f.id && (
+                <button
+                  type="button"
+                  aria-label={`Edit folder ${f.name}`}
+                  onClick={() => setFolderDialog(f)}
+                  className="rounded-full border-2 border-border bg-card px-2 py-1 text-sm shadow-card"
+                >
+                  ✏️
+                </button>
+              )}
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={() => setActiveFolder("unfiled")}
+            className={chip(activeFolder === "unfiled")}
+          >
+            📦 Unfiled ({all.filter((w) => !w.folder_id).length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFolderDialog("new")}
+            className="rounded-full border-2 border-dashed border-border bg-card px-4 py-2 font-display text-sm font-extrabold shadow-card"
+          >
+            + NEW FOLDER
+          </button>
+        </nav>
+
+        {all.length === 0 && !creating && (
           <div className="panel anim-pop mx-auto mt-10 max-w-lg p-8 text-center">
-            <img src={mascotImg} alt="" width={816} height={816} className="anim-float mx-auto w-32" />
+            <img src={mascotImg} alt="" width={384} height={384} className="anim-float mx-auto w-32" />
             <h2 className="mt-2 font-display text-2xl font-extrabold">
               CREATE YOUR FIRST STUDY WORLD
             </h2>
@@ -172,13 +259,19 @@ function Worlds() {
           </div>
         )}
 
+        {all.length > 0 && list.length === 0 && (
+          <p className="panel mt-8 p-6 text-center font-display font-extrabold text-muted-foreground">
+            This folder is empty — create a world here or move one in.
+          </p>
+        )}
+
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((w) => {
             const pct = w.run && w.run.total ? Math.round((w.run.currentIndex / w.run.total) * 100) : 0;
             return (
               <div
                 key={w.id}
-                className={`theme-${w.theme} panel group relative overflow-hidden p-5 text-left transition-transform hover:-translate-y-1`}
+                className={`theme-${w.theme} panel anim-pop group relative overflow-hidden p-5 text-left transition-transform hover:-translate-y-1`}
                 style={{ ["--world-base" as string]: w.custom_color ?? undefined }}
               >
                 <div className="world-gradient absolute inset-x-0 top-0 h-24 opacity-70" />
@@ -226,20 +319,37 @@ function Worlds() {
                     )}
                   </div>
 
-                  <Link
-                    to="/world/$id"
-                    params={{ id: w.id }}
-                    preload="intent"
-                    className="mt-5 inline-block rounded-xl bg-primary px-4 py-2 font-display font-extrabold text-primary-foreground shadow-toy"
-                  >
-                    ENTER WORLD
-                  </Link>
+                  <div className="mt-5 flex flex-wrap items-center gap-2">
+                    <Link
+                      to="/world/$id"
+                      params={{ id: w.id }}
+                      preload="intent"
+                      className="inline-block rounded-xl bg-primary px-4 py-2 font-display font-extrabold text-primary-foreground shadow-toy"
+                    >
+                      ENTER WORLD
+                    </Link>
+                    <select
+                      aria-label={`Folder for ${w.name}`}
+                      value={w.folder_id ?? ""}
+                      onChange={(e) =>
+                        move.mutate({ id: w.id, folderId: e.target.value || null })
+                      }
+                      className="rounded-xl border-2 border-border bg-card px-2 py-2 text-sm font-bold shadow-card"
+                    >
+                      <option value="">📦 No folder</option>
+                      {folderList.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.emoji} {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             );
           })}
 
-          {list.length > 0 && (
+          {all.length > 0 && (
             <button
               type="button"
               onClick={() => setCreating(true)}
@@ -251,7 +361,12 @@ function Worlds() {
         </div>
       </div>
 
-      {creating && <WorldDialog onClose={() => setCreating(false)} />}
+      {creating && (
+        <WorldDialog
+          defaultFolderId={currentFolder?.id ?? null}
+          onClose={() => setCreating(false)}
+        />
+      )}
       {editing && (
         <WorldDialog
           world={editing}
@@ -259,9 +374,19 @@ function Worlds() {
           onSaved={() => setEditing(null)}
         />
       )}
+      {folderDialog && (
+        <FolderDialog
+          folder={folderDialog === "new" ? undefined : folderDialog}
+          onClose={() => {
+            if (folderDialog !== "new" && activeFolder === folderDialog.id) setActiveFolder(null);
+            setFolderDialog(null);
+          }}
+        />
+      )}
     </main>
   );
 }
+
 
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {

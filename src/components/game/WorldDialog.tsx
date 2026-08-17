@@ -20,23 +20,35 @@ export type WorldDraft = {
 
 export function WorldDialog({
   world,
+  defaultFolderId,
   onClose,
   onSaved,
 }: {
-  world?: WorldDraft;
+  world?: WorldDraft | undefined;
+  defaultFolderId?: string | null | undefined;
   onClose: () => void;
-  onSaved?: () => void;
+  onSaved?: (() => void) | undefined;
 }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const create = useServerFn(createWorld);
   const update = useServerFn(updateWorld);
+  const fetchFolders = useServerFn(listFolders);
   const editing = Boolean(world);
+
+  const folders = useQuery({
+    queryKey: ["folders"],
+    queryFn: () => fetchFolders({}),
+    staleTime: 5 * 60_000,
+  });
 
   const [name, setName] = useState(world?.name ?? "");
   const [emoji, setEmoji] = useState(world?.emoji ?? EMOJIS[0]!);
   const [theme, setTheme] = useState<string>(world?.theme ?? "sakura");
   const [color, setColor] = useState(world?.custom_color ?? "#7c6cf0");
+  const [folderId, setFolderId] = useState<string | null>(
+    world?.folder_id ?? defaultFolderId ?? null,
+  );
   const [tasks, setTasks] = useState<string[]>(editing ? [] : ["DPP", "Module", "PYQ"]);
   const [draft, setDraft] = useState("");
 
@@ -50,6 +62,7 @@ export function WorldDialog({
               emoji,
               theme,
               customColor: theme === "custom" ? color : null,
+              folderId,
             },
           })
         : create({
@@ -58,9 +71,11 @@ export function WorldDialog({
               emoji,
               theme,
               customColor: theme === "custom" ? color : null,
+              folderId,
               tasks: tasks.filter(Boolean),
             },
           })) as Promise<WorldDraft>,
+
     onSuccess: (saved) => {
       // Update caches in place — no blocking refetch before the UI responds.
       qc.setQueriesData<WorldDraft[]>({ queryKey: ["worlds"] }, (old) =>
@@ -103,9 +118,26 @@ export function WorldDialog({
           className="mt-1 w-full rounded-xl border-2 border-input bg-card px-4 py-3 font-bold"
         />
 
+        <label className="mt-4 block text-sm font-bold" htmlFor="world-folder">
+          Folder
+        </label>
+        <select
+          id="world-folder"
+          value={folderId ?? ""}
+          onChange={(e) => setFolderId(e.target.value || null)}
+          className="mt-1 w-full rounded-xl border-2 border-input bg-card px-4 py-3 font-bold"
+        >
+          <option value="">📦 No folder</option>
+          {(folders.data ?? []).map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.emoji} {f.name}
+            </option>
+          ))}
+        </select>
+
         <fieldset className="mt-4">
           <legend className="text-sm font-bold">Badge</legend>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             {EMOJIS.map((e) => (
               <button
                 key={e}
@@ -117,8 +149,18 @@ export function WorldDialog({
                 {e}
               </button>
             ))}
+            <input
+              aria-label="Type your own emoji"
+              value={emoji}
+              onChange={(e) => setEmoji(e.target.value.slice(0, 8))}
+              className="h-11 w-20 rounded-xl border-2 border-input bg-card text-center text-xl"
+            />
           </div>
+          <p className="mt-1 text-xs font-bold text-muted-foreground">
+            Type any emoji from your keyboard (Win + . / Ctrl + ⌘ + Space).
+          </p>
         </fieldset>
+
 
         <fieldset className="mt-4">
           <legend className="text-sm font-bold">Colour</legend>

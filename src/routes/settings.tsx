@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { getSettings, getStats, updateSettings } from "@/lib/game.functions";
 import { ENVIRONMENTS } from "@/components/game/WeatherLayer";
+import { BackButton } from "@/components/game/BackButton";
 import { Loading } from "@/components/game/Loading";
 import { useAuth } from "@/hooks/useAuth";
 import { gameAudio } from "@/lib/audio";
@@ -77,9 +78,8 @@ function SettingsPage() {
       <div className="mx-auto max-w-2xl">
         <div className="flex items-center justify-between gap-3">
           <h1 className="font-display text-3xl font-extrabold text-outline">⚙️ SETTINGS</h1>
-          <Link to="/" className="rounded-xl border-2 border-border bg-card px-4 py-2 font-display font-bold shadow-card">
-            ← Worlds
-          </Link>
+          <BackButton fallback="/" label="Worlds" className="rounded-xl border-2 border-border bg-card px-4 py-2 font-display font-bold shadow-card" />
+
         </div>
 
         <section className="panel mt-6 p-5">

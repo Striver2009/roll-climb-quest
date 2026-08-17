@@ -15,7 +15,7 @@ export function FolderDialog({
   folder,
   onClose,
 }: {
-  folder?: FolderDraft;
+  folder?: FolderDraft | undefined;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
