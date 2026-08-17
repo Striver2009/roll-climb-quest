@@ -7,10 +7,12 @@ import mascotImg from "@/assets/mascot.png";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/useAuth";
-import { listWorlds, syncProfile } from "@/lib/game.functions";
+import { listFolders, listWorlds, moveWorldToFolder, syncProfile } from "@/lib/game.functions";
 import { localDateString, localTimezone } from "@/lib/localdate";
 import { Loading } from "@/components/game/Loading";
 import { WorldDialog, type WorldDraft } from "@/components/game/WorldDialog";
+import { FolderDialog, type FolderDraft } from "@/components/game/FolderDialog";
+
 
 export const Route = createFileRoute("/")({
   ssr: false,
