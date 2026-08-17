@@ -118,9 +118,26 @@ export function WorldDialog({
           className="mt-1 w-full rounded-xl border-2 border-input bg-card px-4 py-3 font-bold"
         />
 
+        <label className="mt-4 block text-sm font-bold" htmlFor="world-folder">
+          Folder
+        </label>
+        <select
+          id="world-folder"
+          value={folderId ?? ""}
+          onChange={(e) => setFolderId(e.target.value || null)}
+          className="mt-1 w-full rounded-xl border-2 border-input bg-card px-4 py-3 font-bold"
+        >
+          <option value="">📦 No folder</option>
+          {(folders.data ?? []).map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.emoji} {f.name}
+            </option>
+          ))}
+        </select>
+
         <fieldset className="mt-4">
           <legend className="text-sm font-bold">Badge</legend>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             {EMOJIS.map((e) => (
               <button
                 key={e}
@@ -132,8 +149,18 @@ export function WorldDialog({
                 {e}
               </button>
             ))}
+            <input
+              aria-label="Type your own emoji"
+              value={emoji}
+              onChange={(e) => setEmoji(e.target.value.slice(0, 8))}
+              className="h-11 w-20 rounded-xl border-2 border-input bg-card text-center text-xl"
+            />
           </div>
+          <p className="mt-1 text-xs font-bold text-muted-foreground">
+            Type any emoji from your keyboard (Win + . / Ctrl + ⌘ + Space).
+          </p>
         </fieldset>
+
 
         <fieldset className="mt-4">
           <legend className="text-sm font-bold">Colour</legend>
