@@ -24,10 +24,10 @@ export function WorldDialog({
   onClose,
   onSaved,
 }: {
-  world?: WorldDraft;
-  defaultFolderId?: string | null;
+  world?: WorldDraft | undefined;
+  defaultFolderId?: string | null | undefined;
   onClose: () => void;
-  onSaved?: () => void;
+  onSaved?: (() => void) | undefined;
 }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
