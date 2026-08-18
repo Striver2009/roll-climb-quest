@@ -63,6 +63,7 @@ function WorldPage() {
   const fetchSettings = useServerFn(getSettings);
   const roll = useServerFn(rollToday);
   const complete = useServerFn(completeTask);
+  const restart = useServerFn(restartToday);
 
   const [today, setToday] = useState(localDateString());
   const [tab, setTab] = useState<Tab>("climb");
