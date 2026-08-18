@@ -188,6 +188,33 @@ function WorldPage() {
     },
   });
 
+  // Restart today's climb from checkpoint 1 — same dice-locked order until midnight.
+  const restartMut = useMutation({
+    mutationFn: () => restart({ data: { taskSetId: id, localDate: today } }),
+    onMutate: () => {
+      celebrated.current = null;
+      setSummitOpen(false);
+      gameAudio.unlock();
+      patchWorld((old) =>
+        old.run
+          ? { ...old, run: { ...old.run, current_index: 0, completed_at: null } }
+          : old,
+      );
+    },
+    onSuccess: (runRow) => {
+      patchWorld((old) => ({ ...old, run: runRow as WorldData["run"] }));
+      void qc.invalidateQueries({ queryKey: ["worlds"] });
+      toast.success("🔄 Back to checkpoint 1 — same route until midnight.");
+    },
+    onError: () => {
+      gameAudio.error();
+      void qc.invalidateQueries({ queryKey: worldKey });
+      toast.error("🌧️ Couldn't restart the climb. Try again.");
+    },
+  });
+
+
+
   // Summit celebration, once per run.
   useEffect(() => {
     if (!run || !done) return;
