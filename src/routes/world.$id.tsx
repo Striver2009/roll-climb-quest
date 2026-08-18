@@ -415,6 +415,24 @@ function WorldPage() {
                     </p>
                   )}
 
+                  {(currentIndex > 0 || done) && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={restartMut.isPending}
+                        onClick={() => restartMut.mutate()}
+                        className="mt-3 w-full rounded-2xl border-2 border-border bg-card px-6 py-3 font-display text-base font-extrabold shadow-card active:translate-y-0.5 disabled:opacity-60"
+                      >
+                        {restartMut.isPending ? "RESETTING..." : "🔄 RESTART TODAY'S CLIMB"}
+                      </button>
+                      <p className="mt-1 text-center text-xs text-muted-foreground">
+                        Same dice-locked order until midnight — then a fresh roll.
+                      </p>
+                    </>
+                  )}
+
+
+
                   <ol className="mt-6 space-y-2">
                     {sequence.map((item, i) => {
                       const state =
