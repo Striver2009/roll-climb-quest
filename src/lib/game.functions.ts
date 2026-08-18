@@ -434,6 +434,29 @@ export const rollToday = createServerFn({ method: "POST" })
     return res.data;
   });
 
+/**
+ * Restart today's adventure: progress resets to the first checkpoint while the
+ * dice-locked order stays exactly the same until local midnight.
+ */
+export const restartToday = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { taskSetId: string; localDate: string }) =>
+    z.object({ taskSetId: uuid, localDate }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const res = await context.supabase.rpc("restart_daily_run", {
+      p_task_set_id: data.taskSetId,
+      p_local_date: data.localDate,
+    });
+    if (res.error) {
+      if (res.error.message.includes("run not found")) throw new Error("NO_RUN");
+      throw new Error("RESTART_FAILED");
+    }
+    return res.data;
+  });
+
+
+
 /** Server-authoritative: only the run's current mission can be completed. */
 export const completeTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -24,6 +24,7 @@ import {
   getSettings,
   getWorld,
   reorderTasks,
+  restartToday,
   rollToday,
   updateTask,
   type SequenceItem,
@@ -62,6 +63,7 @@ function WorldPage() {
   const fetchSettings = useServerFn(getSettings);
   const roll = useServerFn(rollToday);
   const complete = useServerFn(completeTask);
+  const restart = useServerFn(restartToday);
 
   const [today, setToday] = useState(localDateString());
   const [tab, setTab] = useState<Tab>("climb");
@@ -185,6 +187,33 @@ function WorldPage() {
       );
     },
   });
+
+  // Restart today's climb from checkpoint 1 — same dice-locked order until midnight.
+  const restartMut = useMutation({
+    mutationFn: () => restart({ data: { taskSetId: id, localDate: today } }),
+    onMutate: () => {
+      celebrated.current = null;
+      setSummitOpen(false);
+      gameAudio.unlock();
+      patchWorld((old) =>
+        old.run
+          ? { ...old, run: { ...old.run, current_index: 0, completed_at: null } }
+          : old,
+      );
+    },
+    onSuccess: (runRow) => {
+      patchWorld((old) => ({ ...old, run: runRow as WorldData["run"] }));
+      void qc.invalidateQueries({ queryKey: ["worlds"] });
+      toast.success("🔄 Back to checkpoint 1 — same route until midnight.");
+    },
+    onError: () => {
+      gameAudio.error();
+      void qc.invalidateQueries({ queryKey: worldKey });
+      toast.error("🌧️ Couldn't restart the climb. Try again.");
+    },
+  });
+
+
 
   // Summit celebration, once per run.
   useEffect(() => {
@@ -385,6 +414,24 @@ function WorldPage() {
                       Every checkpoint cleared. Come back tomorrow for a fresh route.
                     </p>
                   )}
+
+                  {(currentIndex > 0 || done) && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={restartMut.isPending}
+                        onClick={() => restartMut.mutate()}
+                        className="mt-3 w-full rounded-2xl border-2 border-border bg-card px-6 py-3 font-display text-base font-extrabold shadow-card active:translate-y-0.5 disabled:opacity-60"
+                      >
+                        {restartMut.isPending ? "RESETTING..." : "🔄 RESTART TODAY'S CLIMB"}
+                      </button>
+                      <p className="mt-1 text-center text-xs text-muted-foreground">
+                        Same dice-locked order until midnight — then a fresh roll.
+                      </p>
+                    </>
+                  )}
+
+
 
                   <ol className="mt-6 space-y-2">
                     {sequence.map((item, i) => {
