@@ -24,6 +24,7 @@ import {
   getSettings,
   getWorld,
   reorderTasks,
+  restartToday,
   rollToday,
   updateTask,
   type SequenceItem,
