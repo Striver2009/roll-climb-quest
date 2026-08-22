@@ -72,6 +72,9 @@ function WorldPage() {
   const [confetti, setConfetti] = useState(0);
   const [summitOpen, setSummitOpen] = useState(false);
   const [detail, setDetail] = useState<number | null>(null);
+  const [resetCode, setResetCode] = useState<string | null>(null);
+  const [resetInput, setResetInput] = useState("");
+
   const celebrated = useRef<string | null>(null);
 
   // Roll over at local midnight without a reload.
