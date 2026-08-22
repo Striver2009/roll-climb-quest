@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
 export type EnvName = "spring" | "snow" | "rain" | "mist" | "sunset" | "night" | "petalstorm";
 
@@ -25,14 +25,14 @@ export const SKY_GRADIENTS: Record<EnvName, string> = {
 };
 
 /** GPU-friendly particle layer — small, capped element counts. */
-export function WeatherLayer({
+function WeatherLayerComponent({
   env,
   motion,
 }: {
   env: EnvName;
   motion: "full" | "reduced" | "off";
 }) {
-  const count = motion === "off" ? 0 : motion === "reduced" ? 10 : env === "petalstorm" ? 42 : 26;
+  const count = motion === "off" ? 0 : motion === "reduced" ? 8 : env === "petalstorm" ? 28 : 18;
 
   const bits = useMemo(
     () =>
@@ -51,7 +51,7 @@ export function WeatherLayer({
 
   if (env === "rain") {
     return (
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div aria-hidden className="weather-layer pointer-events-none absolute inset-0 overflow-hidden">
         {bits.map((b, i) => (
           <span
             key={i}
@@ -72,17 +72,17 @@ export function WeatherLayer({
 
   if (env === "mist") {
     return (
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        {Array.from({ length: motion === "reduced" ? 3 : 6 }).map((_, i) => (
+      <div aria-hidden className="weather-layer pointer-events-none absolute inset-0 overflow-hidden">
+        {Array.from({ length: motion === "reduced" ? 2 : 4 }).map((_, i) => (
           <span
             key={i}
-            className="absolute block rounded-full bg-snow"
+            className="absolute block rounded-full"
             style={{
               top: `${18 + i * 12}%`,
               width: "60%",
               height: 90,
-              filter: "blur(28px)",
-              opacity: 0.5,
+              background: "linear-gradient(90deg, transparent, var(--color-snow), transparent)",
+              opacity: 0.38,
               animation: `drift-x ${28 + i * 6}s linear ${i * -6}s infinite`,
             }}
           />
@@ -93,7 +93,7 @@ export function WeatherLayer({
 
   if (env === "night") {
     return (
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div aria-hidden className="weather-layer pointer-events-none absolute inset-0 overflow-hidden">
         {bits.map((b, i) => (
           <span
             key={i}
@@ -117,7 +117,7 @@ export function WeatherLayer({
 
   const snowy = env === "snow";
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div aria-hidden className="weather-layer pointer-events-none absolute inset-0 overflow-hidden">
       {bits.map((b, i) => (
         <span
           key={i}
@@ -138,3 +138,5 @@ export function WeatherLayer({
     </div>
   );
 }
+
+export const WeatherLayer = memo(WeatherLayerComponent);

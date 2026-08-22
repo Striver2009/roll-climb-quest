@@ -12,7 +12,7 @@ export function Confetti({ fire, motion }: { fire: number; motion: "full" | "red
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     canvas.width = w * dpr;
@@ -20,7 +20,7 @@ export function Confetti({ fire, motion }: { fire: number; motion: "full" | "red
     ctx.scale(dpr, dpr);
 
     const colors = ["#ff8a5c", "#ffd166", "#8ad6ff", "#a0e8af", "#ffb3d1"];
-    const n = motion === "reduced" ? 40 : 120;
+    const n = motion === "reduced" ? 30 : 80;
     const parts = Array.from({ length: n }, () => ({
       x: w / 2 + (Math.random() - 0.5) * w * 0.5,
       y: h * 0.55 + (Math.random() - 0.5) * 40,
