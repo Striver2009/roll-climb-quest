@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import mascotImg from "@/assets/mascot.png";
 import { CHECKPOINT_ICONS, START_POINT, SUMMIT_POINT, checkpointPositions, trailPath } from "@/lib/mountain";
 import { SKY_GRADIENTS, WeatherLayer, type EnvName } from "./WeatherLayer";
@@ -13,7 +13,7 @@ type Props = {
   onCheckpointClick?: (index: number) => void;
 };
 
-export function MountainScene({
+function MountainSceneComponent({
   sequence,
   currentIndex,
   env,
@@ -46,12 +46,11 @@ export function MountainScene({
       <WeatherLayer env={env} motion={motion} />
 
       <div
-        className="absolute inset-0"
+        className="mountain-camera absolute inset-0"
         style={{
           transform: camera,
           transformOrigin: "50% 100%",
           transition: motion === "off" ? "none" : "transform 700ms cubic-bezier(.35,1.1,.35,1)",
-          willChange: "transform",
         }}
       >
         {/* mountain backdrop */}
@@ -152,7 +151,6 @@ export function MountainScene({
                 top: `${p.y}%`,
                 zIndex: state === "current" ? 20 : 10,
                 transform: "translate(-50%,-50%)",
-                willChange: "transform",
               }}
             >
               <span
@@ -209,14 +207,9 @@ export function MountainScene({
         <Marker x={SUMMIT_POINT.x} y={SUMMIT_POINT.y} label={done ? "🏆 SUMMIT" : "SUMMIT"} tone={done ? "summit-done" : "summit"} />
 
         {/* mascot climbing */}
-        <img
-          src={mascotImg}
-          alt="Your explorer mascot"
-          width={816}
-          height={816}
-          className={motion === "off" ? "" : "anim-bob"}
+        <div
+          className="absolute z-25"
           style={{
-            position: "absolute",
             left: `${mascot.x + 7}%`,
             top: `${mascot.y - 4}%`,
             width: "16%",
@@ -224,15 +217,22 @@ export function MountainScene({
             transform: "translate(-50%,-50%)",
             transition:
               motion === "off" ? "none" : "left 700ms cubic-bezier(.32,.9,.3,1), top 700ms cubic-bezier(.32,.9,.3,1)",
-            willChange: "left, top",
-            filter: "drop-shadow(0 8px 10px oklch(0.3 0.06 20 / .45))",
-            zIndex: 25,
           }}
-        />
+        >
+          <img
+            src={mascotImg}
+            alt="Your explorer mascot"
+            width={384}
+            height={384}
+            className={`block h-auto w-full ${motion === "off" ? "" : "anim-bob"}`}
+          />
+        </div>
       </div>
     </div>
   );
 }
+
+export const MountainScene = memo(MountainSceneComponent);
 
 function Marker({
   x,
