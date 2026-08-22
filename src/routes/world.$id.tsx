@@ -72,6 +72,9 @@ function WorldPage() {
   const [confetti, setConfetti] = useState(0);
   const [summitOpen, setSummitOpen] = useState(false);
   const [detail, setDetail] = useState<number | null>(null);
+  const [resetCode, setResetCode] = useState<string | null>(null);
+  const [resetInput, setResetInput] = useState("");
+
   const celebrated = useRef<string | null>(null);
 
   // Roll over at local midnight without a reload.
@@ -420,7 +423,10 @@ function WorldPage() {
                       <button
                         type="button"
                         disabled={restartMut.isPending}
-                        onClick={() => restartMut.mutate()}
+                        onClick={() => {
+                          setResetInput("");
+                          setResetCode(String(Math.floor(1000 + Math.random() * 9000)));
+                        }}
                         className="mt-3 w-full rounded-2xl border-2 border-border bg-card px-6 py-3 font-display text-base font-extrabold shadow-card active:translate-y-0.5 disabled:opacity-60"
                       >
                         {restartMut.isPending ? "RESETTING..." : "🔄 RESTART TODAY'S CLIMB"}
@@ -428,8 +434,55 @@ function WorldPage() {
                       <p className="mt-1 text-center text-xs text-muted-foreground">
                         Same dice-locked order until midnight — then a fresh roll.
                       </p>
+
+                      {resetCode && (
+                        <div className="mt-3 rounded-2xl border-2 border-border bg-muted/40 p-4 text-left">
+                          <p className="font-display text-sm font-extrabold">
+                            Confirm reset — type the code
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            To avoid an accidental reset, enter{" "}
+                            <span className="font-mono text-base font-extrabold tracking-[0.3em] text-foreground">
+                              {resetCode}
+                            </span>
+                          </p>
+                          <input
+                            autoFocus
+                            inputMode="numeric"
+                            maxLength={4}
+                            value={resetInput}
+                            onChange={(e) =>
+                              setResetInput(e.target.value.replace(/\D/g, "").slice(0, 4))
+                            }
+                            placeholder="0000"
+                            className="mt-3 w-full rounded-xl border-2 border-border bg-card px-4 py-2 text-center font-mono text-lg font-extrabold tracking-[0.3em] outline-none focus:border-meadow"
+                          />
+                          <div className="mt-3 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setResetCode(null)}
+                              className="flex-1 rounded-xl border-2 border-border bg-card px-4 py-2 font-display text-sm font-extrabold"
+                            >
+                              CANCEL
+                            </button>
+                            <button
+                              type="button"
+                              disabled={resetInput !== resetCode || restartMut.isPending}
+                              onClick={() => {
+                                setResetCode(null);
+                                setResetInput("");
+                                restartMut.mutate();
+                              }}
+                              className="flex-1 rounded-xl bg-sunset px-4 py-2 font-display text-sm font-extrabold text-card shadow-toy active:translate-y-0.5 disabled:opacity-50"
+                            >
+                              RESET
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
+
 
 
 
