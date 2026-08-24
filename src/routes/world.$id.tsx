@@ -599,6 +599,7 @@ function MissionsTab({
   const reorder = useServerFn(reorderTasks);
   const removeWorld = useServerFn(deleteWorld);
   const [title, setTitle] = useState("");
+  const [newDay, setNewDay] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Every mission edit paints instantly, then syncs in the background.
