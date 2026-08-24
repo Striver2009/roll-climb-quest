@@ -310,14 +310,21 @@ export const deleteWorld = createServerFn({ method: "POST" })
 
 export const addTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { taskSetId: string; title: string; description?: string }) =>
-    z
-      .object({
-        taskSetId: uuid,
-        title: z.string().trim().min(1).max(80),
-        description: z.string().trim().max(240).optional(),
-      })
-      .parse(data),
+  .inputValidator(
+    (data: {
+      taskSetId: string;
+      title: string;
+      description?: string;
+      dayOfWeek?: number | null;
+    }) =>
+      z
+        .object({
+          taskSetId: uuid,
+          title: z.string().trim().min(1).max(80),
+          description: z.string().trim().max(240).optional(),
+          dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+        })
+        .parse(data),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
