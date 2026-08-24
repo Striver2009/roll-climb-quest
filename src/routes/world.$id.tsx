@@ -148,7 +148,7 @@ function WorldPage() {
       gameAudio.error();
       toast.error(
         e.message === "NO_TASKS"
-          ? "🎒 Add at least one mission before you roll."
+          ? "🎒 No missions for today — add a daily mission or one for today's weekday."
           : "🌧️ The dice slipped. Try again.",
       );
     },
@@ -599,6 +599,7 @@ function MissionsTab({
   const reorder = useServerFn(reorderTasks);
   const removeWorld = useServerFn(deleteWorld);
   const [title, setTitle] = useState("");
+  const [newDay, setNewDay] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Every mission edit paints instantly, then syncs in the background.
@@ -620,16 +621,36 @@ function MissionsTab({
     mut.mutate(() => reorder({ data: { taskSetId, ids: next.map((t) => t.id) } }));
   };
 
+  const groups: { key: string; label: string; day: number | null }[] = [
+    { key: "daily", label: "♾️ DAILY MISSIONS", day: null },
+    { key: "1", label: "MONDAY", day: 1 },
+    { key: "2", label: "TUESDAY", day: 2 },
+    { key: "3", label: "WEDNESDAY", day: 3 },
+    { key: "4", label: "THURSDAY", day: 4 },
+    { key: "5", label: "FRIDAY", day: 5 },
+    { key: "6", label: "SATURDAY", day: 6 },
+    { key: "0", label: "SUNDAY", day: 0 },
+  ];
+  const todayDow = new Date().getDay();
+
+  const setDay = (t: Task, day: number | null) => {
+    patchTasks((list) => list.map((x) => (x.id === t.id ? { ...x, day_of_week: day } : x)));
+    mut.mutate(() => patch({ data: { id: t.id, dayOfWeek: day } }));
+  };
+
   return (
     <section className="panel mt-5 p-5">
       <h2 className="font-display text-xl font-extrabold">🎒 MISSIONS</h2>
+      <p className="mt-1 text-sm font-bold text-muted-foreground">
+        Daily missions run every day. Weekday missions only join the dice route on their own day.
+      </p>
       {locked && (
         <p className="mt-2 rounded-xl bg-muted p-3 text-sm font-bold">
           Today's route is already locked. Changes apply from tomorrow's roll.
         </p>
       )}
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <label className="sr-only" htmlFor="new-mission">
           New mission
         </label>
@@ -638,13 +659,29 @@ function MissionsTab({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add a mission (DPP, PYQ, Revision...)"
-          className="flex-1 rounded-xl border-2 border-input bg-card px-4 py-3 font-bold"
+          className="min-w-40 flex-1 rounded-xl border-2 border-input bg-card px-4 py-3 font-bold"
         />
+        <label className="sr-only" htmlFor="new-mission-day">
+          Mission day
+        </label>
+        <select
+          id="new-mission-day"
+          value={newDay === null ? "daily" : String(newDay)}
+          onChange={(e) => setNewDay(e.target.value === "daily" ? null : Number(e.target.value))}
+          className="rounded-xl border-2 border-input bg-card px-3 py-3 font-bold"
+        >
+          {groups.map((g) => (
+            <option key={g.key} value={g.day === null ? "daily" : String(g.day)}>
+              {g.day === null ? "Daily" : g.label.charAt(0) + g.label.slice(1).toLowerCase()}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           disabled={!title.trim()}
           onClick={() => {
             const t = title.trim();
+            const day = newDay;
             setTitle("");
             patchTasks((list) => [
               ...list,
@@ -658,9 +695,10 @@ function MissionsTab({
                 description: null,
                 is_active: true,
                 position: list.length,
+                day_of_week: day,
               },
             ]);
-            mut.mutate(() => add({ data: { taskSetId, title: t } }));
+            mut.mutate(() => add({ data: { taskSetId, title: t, dayOfWeek: day } }));
           }}
           className="rounded-xl bg-primary px-5 py-3 font-display font-extrabold text-primary-foreground shadow-toy disabled:opacity-50"
         >
@@ -668,48 +706,106 @@ function MissionsTab({
         </button>
       </div>
 
-      <ul className="mt-4 space-y-2">
-        {tasks.map((t, i) => (
-          <li
-            key={t.id}
-            className="flex items-center gap-2 rounded-xl border-2 border-border bg-card px-3 py-2"
-            style={{ opacity: t.is_active ? 1 : 0.55 }}
-          >
-            <span className="flex flex-col">
-              <button type="button" aria-label={`Move ${t.title} up`} onClick={() => move(i, -1)}>
-                ▲
-              </button>
-              <button type="button" aria-label={`Move ${t.title} down`} onClick={() => move(i, 1)}>
-                ▼
-              </button>
-            </span>
-            <span className="flex-1 truncate font-bold">{t.title}</span>
-            <button
-              type="button"
-              onClick={() => {
-                patchTasks((list) =>
-                  list.map((x) => (x.id === t.id ? { ...x, is_active: !x.is_active } : x)),
-                );
-                mut.mutate(() => patch({ data: { id: t.id, isActive: !t.is_active } }));
-              }}
-              className="rounded-lg bg-muted px-2 py-1 text-xs font-bold"
-            >
-              {t.is_active ? "Pause" : "Activate"}
-            </button>
-            <button
-              type="button"
-              aria-label={`Delete ${t.title}`}
-              onClick={() => {
-                patchTasks((list) => list.filter((x) => x.id !== t.id));
-                mut.mutate(() => remove({ data: { id: t.id } }));
-              }}
-              className="rounded-lg bg-destructive/10 px-2 py-1 text-xs font-bold text-destructive"
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="mt-5 space-y-5">
+        {groups.map((g) => {
+          const items = tasks.filter((t) => (t.day_of_week ?? null) === g.day);
+          const isToday = g.day !== null && g.day === todayDow;
+          return (
+            <div key={g.key}>
+              <h3 className="flex items-center gap-2 font-display text-sm font-extrabold tracking-wide">
+                {g.label}
+                {isToday && (
+                  <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-extrabold text-primary-foreground">
+                    TODAY
+                  </span>
+                )}
+                <span className="text-muted-foreground">({items.length})</span>
+              </h3>
+              {items.length === 0 ? (
+                <p className="mt-1 text-xs font-bold text-muted-foreground">No missions here yet.</p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {items.map((t) => {
+                    const i = tasks.findIndex((x) => x.id === t.id);
+                    return (
+                      <li
+                        key={t.id}
+                        className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-border bg-card px-3 py-2"
+                        style={{ opacity: t.is_active ? 1 : 0.55 }}
+                      >
+                        <span className="flex flex-col">
+                          <button
+                            type="button"
+                            aria-label={`Move ${t.title} up`}
+                            onClick={() => move(i, -1)}
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Move ${t.title} down`}
+                            onClick={() => move(i, 1)}
+                          >
+                            ▼
+                          </button>
+                        </span>
+                        <span className="min-w-24 flex-1 truncate font-bold">{t.title}</span>
+                        <label className="sr-only" htmlFor={`day-${t.id}`}>
+                          Day for {t.title}
+                        </label>
+                        <select
+                          id={`day-${t.id}`}
+                          value={t.day_of_week === null ? "daily" : String(t.day_of_week)}
+                          onChange={(e) =>
+                            setDay(t, e.target.value === "daily" ? null : Number(e.target.value))
+                          }
+                          className="rounded-lg border-2 border-input bg-muted px-2 py-1 text-xs font-bold"
+                        >
+                          {groups.map((o) => (
+                            <option key={o.key} value={o.day === null ? "daily" : String(o.day)}>
+                              {o.day === null
+                                ? "Daily"
+                                : o.label.charAt(0) + o.label.slice(1).toLowerCase()}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            patchTasks((list) =>
+                              list.map((x) =>
+                                x.id === t.id ? { ...x, is_active: !x.is_active } : x,
+                              ),
+                            );
+                            mut.mutate(() =>
+                              patch({ data: { id: t.id, isActive: !t.is_active } }),
+                            );
+                          }}
+                          className="rounded-lg bg-muted px-2 py-1 text-xs font-bold"
+                        >
+                          {t.is_active ? "Pause" : "Activate"}
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${t.title}`}
+                          onClick={() => {
+                            patchTasks((list) => list.filter((x) => x.id !== t.id));
+                            mut.mutate(() => remove({ data: { id: t.id } }));
+                          }}
+                          className="rounded-lg bg-destructive/10 px-2 py-1 text-xs font-bold text-destructive"
+                        >
+                          Delete
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
 
       <div className="mt-8 border-t-2 border-border pt-4">
         {confirmDelete ? (

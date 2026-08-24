@@ -147,6 +147,7 @@ export type Database = {
       tasks: {
         Row: {
           created_at: string
+          day_of_week: number | null
           description: string | null
           id: string
           is_active: boolean
@@ -158,6 +159,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          day_of_week?: number | null
           description?: string | null
           id?: string
           is_active?: boolean
@@ -169,6 +171,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          day_of_week?: number | null
           description?: string | null
           id?: string
           is_active?: boolean
@@ -289,10 +292,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      build_route: {
-        Args: { p_avoid: Json; p_task_set_id: string; p_user_id: string }
-        Returns: Json
-      }
+      build_route:
+        | {
+            Args: { p_avoid: Json; p_task_set_id: string; p_user_id: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_avoid: Json
+              p_local_date?: string
+              p_task_set_id: string
+              p_user_id: string
+            }
+            Returns: Json
+          }
       complete_current_task: {
         Args: { p_daily_run_id: string; p_task_id: string }
         Returns: {
