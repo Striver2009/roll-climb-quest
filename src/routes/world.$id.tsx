@@ -148,7 +148,7 @@ function WorldPage() {
       gameAudio.error();
       toast.error(
         e.message === "NO_TASKS"
-          ? "🎒 Add at least one mission before you roll."
+          ? "🎒 No missions for today — add a daily mission or one for today's weekday."
           : "🌧️ The dice slipped. Try again.",
       );
     },
