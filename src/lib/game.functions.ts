@@ -351,6 +351,7 @@ export const addTask = createServerFn({ method: "POST" })
         title: data.title,
         description: data.description ?? null,
         position: count.count ?? 0,
+        day_of_week: data.dayOfWeek ?? null,
       })
       .select()
       .single();
