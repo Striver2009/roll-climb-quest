@@ -315,14 +315,14 @@ export const addTask = createServerFn({ method: "POST" })
       taskSetId: string;
       title: string;
       description?: string;
-      dayOfWeek?: number | null;
+      days?: number[];
     }) =>
       z
         .object({
           taskSetId: uuid,
           title: z.string().trim().min(1).max(80),
           description: z.string().trim().max(240).optional(),
-          dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+          days: z.array(z.number().int().min(0).max(6)).max(7).optional(),
         })
         .parse(data),
   )
@@ -351,7 +351,7 @@ export const addTask = createServerFn({ method: "POST" })
         title: data.title,
         description: data.description ?? null,
         position: count.count ?? 0,
-        day_of_week: data.dayOfWeek ?? null,
+        days: data.days ?? [],
       })
       .select()
       .single();
@@ -367,7 +367,7 @@ export const updateTask = createServerFn({ method: "POST" })
       title?: string;
       description?: string | null;
       isActive?: boolean;
-      dayOfWeek?: number | null;
+      days?: number[];
     }) =>
       z
         .object({
@@ -375,7 +375,7 @@ export const updateTask = createServerFn({ method: "POST" })
           title: z.string().trim().min(1).max(80).optional(),
           description: z.string().trim().max(240).nullable().optional(),
           isActive: z.boolean().optional(),
-          dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+          days: z.array(z.number().int().min(0).max(6)).max(7).optional(),
         })
         .parse(data),
   )
@@ -384,9 +384,9 @@ export const updateTask = createServerFn({ method: "POST" })
       title?: string;
       description?: string | null;
       is_active?: boolean;
-      day_of_week?: number | null;
+      days?: number[];
     } = {};
-    if (data.dayOfWeek !== undefined) patch.day_of_week = data.dayOfWeek;
+    if (data.days !== undefined) patch.days = [...new Set(data.days)].sort();
     if (data.title !== undefined) patch.title = data.title;
     if (data.description !== undefined) patch.description = data.description;
     if (data.isActive !== undefined) patch.is_active = data.isActive;
