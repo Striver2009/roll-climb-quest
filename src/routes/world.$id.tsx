@@ -651,6 +651,18 @@ function MissionsTab({
     mut.mutate(() => patch({ data: { id: t.id, days: [] } }));
   };
 
+  const PRIORITIES: { value: number; label: string }[] = [
+    { value: 2, label: "🔥 Most" },
+    { value: 1, label: "⭐ Medium" },
+    { value: 0, label: "🌱 Least" },
+  ];
+
+  const setTaskPriority = (t: Task, priority: number) => {
+    patchTasks((list) => list.map((x) => (x.id === t.id ? { ...x, priority } : x)));
+    mut.mutate(() => patch({ data: { id: t.id, priority } }));
+  };
+
+
   const groups: { key: string; label: string; day: number | null }[] = [
     { key: "daily", label: "♾️ DAILY MISSIONS", day: null },
     ...DAYS.map((d) => ({ key: String(d.day), label: d.label, day: d.day })),
