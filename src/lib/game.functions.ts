@@ -316,6 +316,7 @@ export const addTask = createServerFn({ method: "POST" })
       title: string;
       description?: string;
       days?: number[];
+      priority?: number;
     }) =>
       z
         .object({
@@ -323,6 +324,7 @@ export const addTask = createServerFn({ method: "POST" })
           title: z.string().trim().min(1).max(80),
           description: z.string().trim().max(240).optional(),
           days: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+          priority: z.number().int().min(0).max(2).optional(),
         })
         .parse(data),
   )
@@ -352,6 +354,7 @@ export const addTask = createServerFn({ method: "POST" })
         description: data.description ?? null,
         position: count.count ?? 0,
         days: data.days ?? [],
+        priority: data.priority ?? 1,
       })
       .select()
       .single();
@@ -368,6 +371,7 @@ export const updateTask = createServerFn({ method: "POST" })
       description?: string | null;
       isActive?: boolean;
       days?: number[];
+      priority?: number;
     }) =>
       z
         .object({
@@ -376,6 +380,7 @@ export const updateTask = createServerFn({ method: "POST" })
           description: z.string().trim().max(240).nullable().optional(),
           isActive: z.boolean().optional(),
           days: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+          priority: z.number().int().min(0).max(2).optional(),
         })
         .parse(data),
   )
@@ -385,7 +390,9 @@ export const updateTask = createServerFn({ method: "POST" })
       description?: string | null;
       is_active?: boolean;
       days?: number[];
+      priority?: number;
     } = {};
+    if (data.priority !== undefined) patch.priority = data.priority;
     if (data.days !== undefined) patch.days = [...new Set(data.days)].sort();
     if (data.title !== undefined) patch.title = data.title;
     if (data.description !== undefined) patch.description = data.description;

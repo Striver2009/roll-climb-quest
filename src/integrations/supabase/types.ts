@@ -153,6 +153,7 @@ export type Database = {
           id: string
           is_active: boolean
           position: number
+          priority: number
           task_set_id: string
           title: string
           updated_at: string
@@ -166,6 +167,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           position?: number
+          priority?: number
           task_set_id: string
           title: string
           updated_at?: string
@@ -179,6 +181,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           position?: number
+          priority?: number
           task_set_id?: string
           title?: string
           updated_at?: string

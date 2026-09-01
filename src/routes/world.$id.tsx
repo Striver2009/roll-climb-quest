@@ -600,6 +600,7 @@ function MissionsTab({
   const removeWorld = useServerFn(deleteWorld);
   const [title, setTitle] = useState("");
   const [newDays, setNewDays] = useState<number[]>([]);
+  const [newPriority, setNewPriority] = useState(1);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Every mission edit paints instantly, then syncs in the background.
@@ -650,6 +651,18 @@ function MissionsTab({
     patchTasks((list) => list.map((x) => (x.id === t.id ? { ...x, days: [] } : x)));
     mut.mutate(() => patch({ data: { id: t.id, days: [] } }));
   };
+
+  const PRIORITIES: { value: number; label: string }[] = [
+    { value: 2, label: "🔥 Most" },
+    { value: 1, label: "⭐ Medium" },
+    { value: 0, label: "🌱 Least" },
+  ];
+
+  const setTaskPriority = (t: Task, priority: number) => {
+    patchTasks((list) => list.map((x) => (x.id === t.id ? { ...x, priority } : x)));
+    mut.mutate(() => patch({ data: { id: t.id, priority } }));
+  };
+
 
   const groups: { key: string; label: string; day: number | null }[] = [
     { key: "daily", label: "♾️ DAILY MISSIONS", day: null },
@@ -702,9 +715,10 @@ function MissionsTab({
                   position: list.length,
                   day_of_week: null,
                   days,
+                  priority: newPriority,
                 },
               ]);
-              mut.mutate(() => add({ data: { taskSetId, title: t, days } }));
+              mut.mutate(() => add({ data: { taskSetId, title: t, days, priority: newPriority } }));
             }}
             className="rounded-xl bg-primary px-5 py-3 font-display font-extrabold text-primary-foreground shadow-toy disabled:opacity-50"
           >
@@ -727,6 +741,19 @@ function MissionsTab({
               className={chip(newDays.includes(d.day))}
             >
               {d.short}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-extrabold text-muted-foreground">IMPORTANCE</span>
+          {PRIORITIES.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => setNewPriority(p.value)}
+              className={chip(newPriority === p.value)}
+            >
+              {p.label}
             </button>
           ))}
         </div>
@@ -826,6 +853,19 @@ function MissionsTab({
                               className={chip((t.days ?? []).includes(d.day))}
                             >
                               {d.short}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          {PRIORITIES.map((p) => (
+                            <button
+                              key={p.value}
+                              type="button"
+                              aria-label={`${p.label} importance for ${t.title}`}
+                              onClick={() => setTaskPriority(t, p.value)}
+                              className={chip((t.priority ?? 1) === p.value)}
+                            >
+                              {p.label}
                             </button>
                           ))}
                         </div>
