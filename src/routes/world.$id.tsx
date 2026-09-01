@@ -831,35 +831,6 @@ function MissionsTab({
                         </div>
                       </li>
                     );
-                        <button
-                          type="button"
-                          onClick={() => {
-                            patchTasks((list) =>
-                              list.map((x) =>
-                                x.id === t.id ? { ...x, is_active: !x.is_active } : x,
-                              ),
-                            );
-                            mut.mutate(() =>
-                              patch({ data: { id: t.id, isActive: !t.is_active } }),
-                            );
-                          }}
-                          className="rounded-lg bg-muted px-2 py-1 text-xs font-bold"
-                        >
-                          {t.is_active ? "Pause" : "Activate"}
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Delete ${t.title}`}
-                          onClick={() => {
-                            patchTasks((list) => list.filter((x) => x.id !== t.id));
-                            mut.mutate(() => remove({ data: { id: t.id } }));
-                          }}
-                          className="rounded-lg bg-destructive/10 px-2 py-1 text-xs font-bold text-destructive"
-                        >
-                          Delete
-                        </button>
-                      </li>
-                    );
                   })}
                 </ul>
               )}
