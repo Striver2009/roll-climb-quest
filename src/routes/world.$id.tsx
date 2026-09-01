@@ -714,9 +714,10 @@ function MissionsTab({
                   position: list.length,
                   day_of_week: null,
                   days,
+                  priority: newPriority,
                 },
               ]);
-              mut.mutate(() => add({ data: { taskSetId, title: t, days } }));
+              mut.mutate(() => add({ data: { taskSetId, title: t, days, priority: newPriority } }));
             }}
             className="rounded-xl bg-primary px-5 py-3 font-display font-extrabold text-primary-foreground shadow-toy disabled:opacity-50"
           >
@@ -742,6 +743,21 @@ function MissionsTab({
             </button>
           ))}
         </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-extrabold text-muted-foreground">IMPORTANCE</span>
+          {PRIORITIES.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => setNewPriority(p.value)}
+              className={chip(newPriority === p.value)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       </div>
 
       <div className="mt-5 space-y-5">
