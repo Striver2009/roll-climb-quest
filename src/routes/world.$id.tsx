@@ -857,6 +857,19 @@ function MissionsTab({
                             </button>
                           ))}
                         </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          {PRIORITIES.map((p) => (
+                            <button
+                              key={p.value}
+                              type="button"
+                              aria-label={`${p.label} importance for ${t.title}`}
+                              onClick={() => setTaskPriority(t, p.value)}
+                              className={chip((t.priority ?? 1) === p.value)}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
                       </li>
                     );
                   })}
