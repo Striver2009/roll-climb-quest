@@ -759,8 +759,6 @@ function MissionsTab({
         </div>
       </div>
 
-      </div>
-
       <div className="mt-5 space-y-5">
         {groups.map((g) => {
           const items = tasks.filter((t) =>
