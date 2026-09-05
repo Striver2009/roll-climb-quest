@@ -6,7 +6,9 @@
 
 /*
  * DAILY STUDY DICE — cartoon adventure design system.
- * All colors are oklch semantic tokens. Never hardcode colors in components.
+ * All colors are semantic hex/rgba tokens (widely supported, incl. older
+ * Android browsers). Never hardcode colors in components.
+
  */
 
 @theme inline {
@@ -162,10 +164,17 @@
   --world-a: #dac4ff;
   --world-b: #9f75e1;
 }
-/* Custom colour worlds: --world-base is set inline from the user's picked hex. */
+/* Custom colour worlds: --world-base is set inline from the user's picked hex.
+   Older Android browsers have no color-mix(), so the plain colour is the base
+   value and the lighter tint is only applied where color-mix is supported. */
 .theme-custom {
-  --world-a: color-mix(in oklab, var(--world-base, #78aeff) 55%, white);
+  --world-a: var(--world-base, #78aeff);
   --world-b: var(--world-base, #78aeff);
+}
+@supports (color: color-mix(in oklab, white 50%, black)) {
+  .theme-custom {
+    --world-a: color-mix(in oklab, var(--world-base, #78aeff) 55%, white);
+  }
 }
 
 @utility world-gradient {
@@ -174,11 +183,12 @@
 
 
 @utility panel {
-  background-color: color-mix(in oklab, var(--color-card) 96%, transparent);
+  background-color: var(--color-card);
   border-radius: var(--radius-2xl);
-  border: 2px solid color-mix(in oklab, var(--color-border) 80%, transparent);
+  border: 2px solid var(--color-border);
   box-shadow: var(--shadow-card);
 }
+
 
 @utility text-outline {
   text-shadow:
