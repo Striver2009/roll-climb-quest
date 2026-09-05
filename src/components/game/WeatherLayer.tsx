@@ -13,15 +13,15 @@ export const ENVIRONMENTS: { id: EnvName; label: string; emoji: string }[] = [
 ];
 
 export const SKY_GRADIENTS: Record<EnvName, string> = {
-  spring: "linear-gradient(180deg, oklch(0.93 0.06 225), oklch(0.96 0.05 90) 70%, oklch(0.95 0.06 30))",
-  snow: "linear-gradient(180deg, oklch(0.9 0.03 235), oklch(0.97 0.01 240))",
-  rain: "linear-gradient(180deg, oklch(0.72 0.03 250), oklch(0.85 0.02 245))",
-  mist: "linear-gradient(180deg, oklch(0.85 0.02 240), oklch(0.93 0.01 220))",
+  spring: "linear-gradient(180deg, #bef1ff, #fff1cc 70%, #ffe0d7)",
+  snow: "linear-gradient(180deg, #cce2ef, #eff6fb)",
+  rain: "linear-gradient(180deg, #97a7b7, #c3cfda)",
+  mist: "linear-gradient(180deg, #c3d0da, #e1eaec)",
   sunset:
-    "linear-gradient(180deg, oklch(0.62 0.14 300), oklch(0.78 0.16 40) 55%, oklch(0.9 0.13 70))",
-  night: "linear-gradient(180deg, oklch(0.22 0.07 265), oklch(0.38 0.09 265))",
+    "linear-gradient(180deg, #9470cd, #ff9064 55%, #ffce79)",
+  night: "linear-gradient(180deg, #0a183b, #2a4072)",
   petalstorm:
-    "linear-gradient(180deg, oklch(0.9 0.07 20), oklch(0.94 0.06 350) 60%, oklch(0.96 0.04 60))",
+    "linear-gradient(180deg, #ffcccb, #ffdbf1 60%, #ffecd8)",
 };
 
 /** GPU-friendly particle layer — small, capped element counts. */
@@ -109,7 +109,7 @@ function WeatherLayerComponent({
         ))}
         <span
           className="absolute right-[12%] top-[10%] block h-16 w-16 rounded-full bg-snow"
-          style={{ boxShadow: "0 0 50px 14px oklch(0.98 0.01 240 / .45)" }}
+          style={{ boxShadow: "0 0 50px 14px rgba(243, 250, 255, 0.45)" }}
         />
       </div>
     );

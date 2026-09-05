@@ -61,7 +61,7 @@ function LoginScreen() {
       className="grid min-h-screen place-items-center px-4 py-10"
       style={{
         background:
-          "radial-gradient(1000px 600px at 50% -10%, oklch(0.93 0.07 20), transparent), linear-gradient(180deg, oklch(0.96 0.05 220), oklch(0.97 0.04 90))",
+          "radial-gradient(1000px 600px at 50% -10%, #ffd6d5, transparent), linear-gradient(180deg, #cefbff, #fff5d7)",
       }}
     >
       <div className="panel anim-pop w-full max-w-md p-8 text-center">
@@ -172,7 +172,7 @@ function Worlds() {
       className="min-h-screen px-4 pb-16 pt-8"
       style={{
         background:
-          "radial-gradient(900px 500px at 80% -10%, oklch(0.93 0.07 200), transparent), linear-gradient(180deg, oklch(0.97 0.04 90), oklch(0.96 0.05 20))",
+          "radial-gradient(900px 500px at 80% -10%, #b0f7fa, transparent), linear-gradient(180deg, #fff5d7, #ffe5e4)",
       }}
     >
       <div className="mx-auto max-w-5xl">

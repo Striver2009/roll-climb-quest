@@ -7,15 +7,32 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
+    let unsubscribe: (() => void) | undefined;
+
+    // Guarded: on devices where storage access throws (some Android browsers),
+    // these calls must never leave the app stuck on the loading screen.
+    try {
+      const { data } = supabase.auth.onAuthStateChange((_e, s) => {
+        setSession(s);
+        setLoading(false);
+      });
+      unsubscribe = () => data.subscription.unsubscribe();
+    } catch {
       setLoading(false);
-    });
-    void supabase.auth.getSession().then(({ data: d }) => {
-      setSession(d.session);
-      setLoading(false);
-    });
-    return () => data.subscription.unsubscribe();
+    }
+
+    void (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setSession(data.session);
+      } catch {
+        setSession(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => unsubscribe?.();
   }, []);
 
   return { session, user: session?.user ?? null, loading };
