@@ -1,7 +1,9 @@
 import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
-import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
+// Project-specific bearer attacher: refreshes an expired/near-expired token
+// before every server call, so idle tabs don't 401 the whole app.
+import { attachSupabaseAuthFresh } from "@/lib/auth-attach";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -26,6 +28,6 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 export const startInstance = createStart(() => ({
-  functionMiddleware: [attachSupabaseAuth],
+  functionMiddleware: [attachSupabaseAuthFresh],
   requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));
