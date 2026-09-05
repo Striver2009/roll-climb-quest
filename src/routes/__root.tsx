@@ -10,8 +10,11 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+// Must run before any Supabase/auth code touches window.localStorage.
+import "../lib/safe-storage";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+
 
 
 function NotFoundComponent() {
