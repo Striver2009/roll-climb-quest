@@ -11,7 +11,10 @@ export const getRouter = () => {
         gcTime: 10 * 60_000,
         refetchOnWindowFocus: false,
         refetchOnMount: false,
-        retry: 1,
+        // Auth hiccups (expired token mid-flight) get one extra attempt, since
+        // the bearer attacher refreshes the session before the retry.
+        retry: (count, error) =>
+          count < (String((error as Error)?.message ?? "").includes("Unauthorized") ? 2 : 1),
       },
     },
   });
