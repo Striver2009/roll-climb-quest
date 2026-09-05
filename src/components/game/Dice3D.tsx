@@ -45,7 +45,7 @@ export function Dice3D({
           width: size * 1.7,
           height: size * 1.7,
           background:
-            "radial-gradient(circle, oklch(0.9 0.16 85 / 0.55) 0%, oklch(0.9 0.16 85 / 0) 70%)",
+            "radial-gradient(circle, rgba(255, 213, 76, 0.55) 0%, rgba(255, 213, 76, 0.0) 70%)",
         }}
       />
       {/* particles */}
@@ -92,9 +92,9 @@ export function Dice3D({
                 style={{
                   transform: f.t,
                   backgroundImage:
-                    "linear-gradient(145deg, oklch(0.99 0.02 80), oklch(0.92 0.05 60))",
+                    "linear-gradient(145deg, #fffbed, #fedec4)",
                   boxShadow:
-                    "inset 0 -10px 18px oklch(0.7 0.06 40 / 0.35), inset 0 10px 14px oklch(1 0 0 / 0.8)",
+                    "inset 0 -10px 18px rgba(192, 146, 131, 0.35), inset 0 10px 14px rgba(255, 255, 255, 0.8)",
                 }}
               >
                 <Pips n={f.pips} size={size} />
@@ -134,9 +134,9 @@ function Pips({ n, size }: { n: number; size: number }) {
           className="rounded-full"
           style={{
             background: on.has(i)
-              ? "radial-gradient(circle at 35% 30%, oklch(0.75 0.2 15), oklch(0.5 0.18 15))"
+              ? "radial-gradient(circle at 35% 30%, #ff6d84, #b21f41)"
               : "transparent",
-            boxShadow: on.has(i) ? "inset 0 -2px 3px oklch(0.3 0.1 15 / .5)" : "none",
+            boxShadow: on.has(i) ? "inset 0 -2px 3px rgba(85, 16, 29, 0.5)" : "none",
           }}
         />
       ))}

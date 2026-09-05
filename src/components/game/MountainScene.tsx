@@ -67,7 +67,7 @@ function MountainSceneComponent({
           <path d="M50 6 L64 38 Q57 33 50 39 Q43 33 36 38 Z" fill="var(--color-snow)" />
           <path d="M50 6 L60 28 Q54 25 50 30 Q46 25 40 28 Z" fill="var(--color-snow)" opacity="0.95" />
           {/* slope shading */}
-          <path d="M50 6 L88 92 L50 92 Z" fill="oklch(0 0 0)" opacity="0.08" />
+          <path d="M50 6 L88 92 L50 92 Z" fill="#000000" opacity="0.08" />
           {/* valley */}
           <path d="M0 88 Q25 80 50 88 Q75 96 100 86 L100 100 L0 100 Z" fill="var(--color-meadow)" opacity={nightish ? 0.6 : 0.95} />
           {/* lake */}
@@ -91,7 +91,7 @@ function MountainSceneComponent({
           <path
             d={path}
             fill="none"
-            stroke="oklch(0.35 0.05 60 / 0.35)"
+            stroke="rgba(78, 52, 31, 0.35)"
             strokeWidth="7"
             strokeLinecap="round"
             vectorEffect="non-scaling-stroke"
@@ -173,9 +173,9 @@ function MountainSceneComponent({
                     borderColor: state === "locked" ? "var(--color-locked)" : "var(--color-card)",
                     background:
                       state === "done"
-                        ? "linear-gradient(145deg, var(--color-meadow), oklch(0.6 0.14 150))"
+                        ? "linear-gradient(145deg, var(--color-meadow), #319751)"
                         : state === "current"
-                          ? "linear-gradient(145deg, var(--color-gold), oklch(0.75 0.17 60))"
+                          ? "linear-gradient(145deg, var(--color-gold), #fa8f19)"
                           : "var(--color-locked)",
                     color: "var(--color-card)",
                     filter: state === "locked" ? "saturate(0.4)" : "none",
