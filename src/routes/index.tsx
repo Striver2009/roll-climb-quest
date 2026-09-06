@@ -148,9 +148,11 @@ function Worlds() {
     return (
       <ErrorState
         message="🌧️ The connection wandered off."
+        detail={String((worlds.error as Error)?.message ?? "").slice(0, 200)}
         onRetry={() => void qc.invalidateQueries({ queryKey: ["worlds"] })}
       />
     );
+
 
   const all = worlds.data ?? [];
   const folderList = folders.data ?? [];
