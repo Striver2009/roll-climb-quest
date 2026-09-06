@@ -255,6 +255,8 @@ function WorldPage() {
     return (
       <Fallback
         title="🌧️ The connection wandered off."
+        detail={String((world.error as Error)?.message ?? "").slice(0, 200)}
+
         action={
           <button
             type="button"
