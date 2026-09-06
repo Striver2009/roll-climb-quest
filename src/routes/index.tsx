@@ -398,7 +398,24 @@ function Worlds() {
 
 
 
+function SessionExpired() {
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    void (async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        /* storage blocked — the login screen below still works */
+      }
+      setDone(true);
+    })();
+  }, []);
+  if (!done) return <Loading label="Refreshing your camp..." />;
+  return <LoginScreen />;
+}
+
 export function ErrorState({
+
   message,
   detail,
   onRetry,
