@@ -144,14 +144,21 @@ function Worlds() {
   });
 
   if (worlds.isLoading && !worlds.data) return <Loading label="Loading your study worlds..." />;
-  if (worlds.isError)
+  if (worlds.isError) {
+    const reason = String((worlds.error as Error)?.message ?? "");
+    // A dead/expired session (common where the browser blocks storage, e.g.
+    // in-app browsers) must send the explorer back to the sign-in door instead
+    // of a dead-end error card.
+    if (/unauthor|invalid token|jwt/i.test(reason)) return <SessionExpired />;
     return (
       <ErrorState
         message="🌧️ The connection wandered off."
-        detail={String((worlds.error as Error)?.message ?? "").slice(0, 200)}
+        detail={reason.slice(0, 200)}
         onRetry={() => void qc.invalidateQueries({ queryKey: ["worlds"] })}
       />
     );
+  }
+
 
 
   const all = worlds.data ?? [];
