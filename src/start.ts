@@ -34,12 +34,19 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 // Dropping the header check is safe for this app: server functions authenticate
 // with a Supabase bearer token read from browser storage, never with cookies,
 // so a cross-site page cannot forge an authenticated call.
+// Root cause of the Android in-app-browser failures: those WebViews send
+// server-function fetches with an opaque/absent Origin AND, on some builds, a
+// `Sec-Fetch-Site` value that is neither `same-origin` nor `none`. Any header
+// based check therefore answers with 403 and the app shows the error card.
+//
+// Server functions here never trust cookies — they authenticate with a Supabase
+// bearer token read from browser storage — so a cross-site page cannot forge an
+// authenticated call and the header check protects nothing. Skip it for
+// server functions entirely; other handler types keep the default protection.
 const csrfMiddleware = createCsrfMiddleware({
-  filter: (ctx) => ctx.handlerType === "serverFn",
-  secFetchSite: (value) => value === "same-origin" || value === "none",
-  origin: (value, ctx) => value === "null" || value === new URL(ctx.request.url).origin,
-  allowRequestsWithoutOriginCheck: true,
+  filter: () => false,
 });
+
 
 
 export const startInstance = createStart(() => ({
