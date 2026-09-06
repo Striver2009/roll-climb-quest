@@ -148,9 +148,11 @@ function Worlds() {
     return (
       <ErrorState
         message="🌧️ The connection wandered off."
+        detail={String((worlds.error as Error)?.message ?? "").slice(0, 200)}
         onRetry={() => void qc.invalidateQueries({ queryKey: ["worlds"] })}
       />
     );
+
 
   const all = worlds.data ?? [];
   const folderList = folders.data ?? [];
@@ -389,11 +391,24 @@ function Worlds() {
 
 
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+export function ErrorState({
+  message,
+  detail,
+  onRetry,
+}: {
+  message: string;
+  detail?: string;
+  onRetry: () => void;
+}) {
   return (
     <main className="grid min-h-screen place-items-center px-4">
       <div className="panel p-8 text-center">
         <p className="font-display text-2xl font-extrabold">{message}</p>
+        {detail ? (
+          <p className="mx-auto mt-3 max-w-xs break-words text-xs text-muted-foreground">
+            {detail}
+          </p>
+        ) : null}
         <button
           type="button"
           onClick={onRetry}
@@ -405,3 +420,4 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
     </main>
   );
 }
+

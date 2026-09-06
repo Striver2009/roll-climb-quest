@@ -255,6 +255,8 @@ function WorldPage() {
     return (
       <Fallback
         title="🌧️ The connection wandered off."
+        detail={String((world.error as Error)?.message ?? "").slice(0, 200)}
+
         action={
           <button
             type="button"
@@ -1019,13 +1021,27 @@ function HomeLink() {
   );
 }
 
-function Fallback({ title, action }: { title: string; action: React.ReactNode }) {
+function Fallback({
+  title,
+  detail,
+  action,
+}: {
+  title: string;
+  detail?: string;
+  action: React.ReactNode;
+}) {
   return (
     <main className="grid min-h-screen place-items-center px-4">
       <div className="panel p-8 text-center">
         <p className="font-display text-2xl font-extrabold">{title}</p>
+        {detail ? (
+          <p className="mx-auto mt-3 max-w-xs break-words text-xs text-muted-foreground">
+            {detail}
+          </p>
+        ) : null}
         <div className="mt-5">{action}</div>
       </div>
     </main>
   );
 }
+
