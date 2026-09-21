@@ -204,6 +204,7 @@ export const createWorld = createServerFn({ method: "POST" })
       theme: string;
       customColor?: string | null;
       folderId?: string | null;
+      aiOrder?: boolean;
       tasks: string[];
     }) =>
       z
@@ -213,6 +214,7 @@ export const createWorld = createServerFn({ method: "POST" })
           theme: z.enum(["sakura", "ocean", "ember", "forest", "violet", "custom"]),
           customColor: hexColor.optional(),
           folderId: uuid.nullable().optional(),
+          aiOrder: z.boolean().optional(),
           tasks: z.array(z.string().trim().min(1).max(80)).max(40),
         })
         .parse(data),
@@ -228,6 +230,7 @@ export const createWorld = createServerFn({ method: "POST" })
         theme: data.theme,
         custom_color: data.customColor ?? null,
         folder_id: data.folderId ?? null,
+        ai_order: data.aiOrder ?? false,
       })
       .select()
       .single();
@@ -256,6 +259,7 @@ export const updateWorld = createServerFn({ method: "POST" })
       theme?: string;
       customColor?: string | null;
       folderId?: string | null;
+      aiOrder?: boolean;
     }) =>
       z
         .object({
@@ -265,6 +269,7 @@ export const updateWorld = createServerFn({ method: "POST" })
           theme: z.enum(["sakura", "ocean", "ember", "forest", "violet", "custom"]).optional(),
           customColor: hexColor.optional(),
           folderId: uuid.nullable().optional(),
+          aiOrder: z.boolean().optional(),
         })
         .parse(data),
   )
@@ -275,12 +280,14 @@ export const updateWorld = createServerFn({ method: "POST" })
       theme?: string;
       custom_color?: string | null;
       folder_id?: string | null;
+      ai_order?: boolean;
     } = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.emoji !== undefined) patch.emoji = data.emoji;
     if (data.theme !== undefined) patch.theme = data.theme;
     if (data.customColor !== undefined) patch.custom_color = data.customColor;
     if (data.folderId !== undefined) patch.folder_id = data.folderId;
+    if (data.aiOrder !== undefined) patch.ai_order = data.aiOrder;
     const { id } = data;
     const res = await context.supabase
       .from("task_sets")
