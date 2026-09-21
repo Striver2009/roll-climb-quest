@@ -15,6 +15,7 @@ export type WorldDraft = {
   theme: string;
   custom_color: string | null;
   folder_id?: string | null;
+  ai_order?: boolean;
 };
 
 
@@ -49,6 +50,7 @@ export function WorldDialog({
   const [folderId, setFolderId] = useState<string | null>(
     world?.folder_id ?? defaultFolderId ?? null,
   );
+  const [aiOrder, setAiOrder] = useState(world?.ai_order ?? false);
   const [tasks, setTasks] = useState<string[]>(editing ? [] : ["DPP", "Module", "PYQ"]);
   const [draft, setDraft] = useState("");
 
@@ -63,6 +65,7 @@ export function WorldDialog({
               theme,
               customColor: theme === "custom" ? color : null,
               folderId,
+              aiOrder,
             },
           })
         : create({
@@ -72,6 +75,7 @@ export function WorldDialog({
               theme,
               customColor: theme === "custom" ? color : null,
               folderId,
+              aiOrder,
               tasks: tasks.filter(Boolean),
             },
           })) as Promise<WorldDraft>,
@@ -201,6 +205,26 @@ export function WorldDialog({
               <span className="font-mono text-sm font-bold uppercase">{color}</span>
             </div>
           )}
+        </fieldset>
+
+        <fieldset className="mt-5 rounded-2xl border-2 border-border bg-muted/30 p-4">
+          <legend className="px-1 text-sm font-bold">Order style</legend>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={aiOrder}
+              onChange={(e) => setAiOrder(e.target.checked)}
+              className="mt-1 h-5 w-5 accent-[var(--primary)]"
+            />
+            <span>
+              <span className="font-display font-extrabold">🧠 SMART ORDER (AI)</span>
+              <span className="mt-1 block text-xs font-bold text-muted-foreground">
+                Instead of pure luck, a helper picks the smartest order for the day — most
+                important missions first, heaviest thinking while you are fresh, lighter work
+                later. Still locked until midnight.
+              </span>
+            </span>
+          </label>
         </fieldset>
 
         {!editing && (
