@@ -444,6 +444,16 @@ export const reorderTasks = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
 /** Idempotent: returns the existing locked route if today's run already exists. */
 export const rollToday = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -451,7 +461,23 @@ export const rollToday = createServerFn({ method: "POST" })
     z.object({ taskSetId: uuid, localDate }).parse(data),
   )
   .handler(async ({ data, context }) => {
-    const res = await context.supabase.rpc("roll_daily_run", {
+    const { supabase } = context;
+
+    // Smart order (opt-in per world): ask the planner first, then let the
+    // database validate and lock it. Any hiccup falls back to the dice.
+    const set = await supabase
+      .from("task_sets")
+      .select("name, ai_order")
+      .eq("id", data.taskSetId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    if (set.data?.ai_order) {
+      const smart = await smartRoll(context, data, set.data.name);
+      if (smart) return smart;
+    }
+
+    const res = await supabase.rpc("roll_daily_run", {
       p_task_set_id: data.taskSetId,
       p_local_date: data.localDate,
     });
@@ -461,6 +487,77 @@ export const rollToday = createServerFn({ method: "POST" })
     }
     return res.data;
   });
+
+type AuthContext = { supabase: ReturnType<typeof requireSupabaseAuth> extends never ? never : any };
+
+async function smartRoll(
+  context: { supabase: any; userId: string },
+  data: { taskSetId: string; localDate: string },
+  worldName: string,
+) {
+  try {
+    const { supabase, userId } = context;
+    const dow = new Date(`${data.localDate}T12:00:00Z`).getUTCDay();
+
+    const [tasksRes, histRes] = await Promise.all([
+      supabase
+        .from("tasks")
+        .select("id, title, description, priority, days")
+        .eq("task_set_id", data.taskSetId)
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .order("position"),
+      supabase
+        .from("daily_runs")
+        .select("sequence")
+        .eq("task_set_id", data.taskSetId)
+        .eq("user_id", userId)
+        .lt("local_date", data.localDate)
+        .order("local_date", { ascending: false })
+        .limit(7),
+    ]);
+
+    const eligible = (tasksRes.data ?? []).filter(
+      (t: { days: number[] | null }) => !t.days || t.days.length === 0 || t.days.includes(dow),
+    );
+    if (eligible.length < 2) return null;
+
+    const history = (histRes.data ?? []).map(
+      (r: { sequence: Array<{ id: string }> | null }) => r.sequence ?? [],
+    );
+
+    const { planMissionOrder } = await import("@/lib/ai-plan.server");
+    const plan = await planMissionOrder({
+      worldName,
+      weekday: WEEKDAYS[dow] ?? "today",
+      tasks: eligible.map(
+        (t: { id: string; title: string; description: string | null; priority: number }) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          priority: t.priority ?? 1,
+          recentlyFirst: history.filter((s: Array<{ id: string }>) => s[0]?.id === t.id).length,
+          recentlyLast: history.filter(
+            (s: Array<{ id: string }>) => s.length > 0 && s[s.length - 1]?.id === t.id,
+          ).length,
+        }),
+      ),
+    });
+    if (!plan) return null;
+
+    const res = await supabase.rpc("roll_daily_run_ai", {
+      p_task_set_id: data.taskSetId,
+      p_local_date: data.localDate,
+      p_order: plan.order,
+      p_reason: plan.reason,
+    });
+    if (res.error) return null;
+    return res.data;
+  } catch {
+    return null;
+  }
+}
+
 
 /**
  * Restart today's adventure: progress resets to the first checkpoint while the
