@@ -204,6 +204,7 @@ export const createWorld = createServerFn({ method: "POST" })
       theme: string;
       customColor?: string | null;
       folderId?: string | null;
+      aiOrder?: boolean;
       tasks: string[];
     }) =>
       z
@@ -213,6 +214,7 @@ export const createWorld = createServerFn({ method: "POST" })
           theme: z.enum(["sakura", "ocean", "ember", "forest", "violet", "custom"]),
           customColor: hexColor.optional(),
           folderId: uuid.nullable().optional(),
+          aiOrder: z.boolean().optional(),
           tasks: z.array(z.string().trim().min(1).max(80)).max(40),
         })
         .parse(data),
@@ -228,6 +230,7 @@ export const createWorld = createServerFn({ method: "POST" })
         theme: data.theme,
         custom_color: data.customColor ?? null,
         folder_id: data.folderId ?? null,
+        ai_order: data.aiOrder ?? false,
       })
       .select()
       .single();
@@ -256,6 +259,7 @@ export const updateWorld = createServerFn({ method: "POST" })
       theme?: string;
       customColor?: string | null;
       folderId?: string | null;
+      aiOrder?: boolean;
     }) =>
       z
         .object({
@@ -265,6 +269,7 @@ export const updateWorld = createServerFn({ method: "POST" })
           theme: z.enum(["sakura", "ocean", "ember", "forest", "violet", "custom"]).optional(),
           customColor: hexColor.optional(),
           folderId: uuid.nullable().optional(),
+          aiOrder: z.boolean().optional(),
         })
         .parse(data),
   )
@@ -275,12 +280,14 @@ export const updateWorld = createServerFn({ method: "POST" })
       theme?: string;
       custom_color?: string | null;
       folder_id?: string | null;
+      ai_order?: boolean;
     } = {};
     if (data.name !== undefined) patch.name = data.name;
     if (data.emoji !== undefined) patch.emoji = data.emoji;
     if (data.theme !== undefined) patch.theme = data.theme;
     if (data.customColor !== undefined) patch.custom_color = data.customColor;
     if (data.folderId !== undefined) patch.folder_id = data.folderId;
+    if (data.aiOrder !== undefined) patch.ai_order = data.aiOrder;
     const { id } = data;
     const res = await context.supabase
       .from("task_sets")
@@ -444,6 +451,16 @@ export const reorderTasks = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
 /** Idempotent: returns the existing locked route if today's run already exists. */
 export const rollToday = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -451,7 +468,23 @@ export const rollToday = createServerFn({ method: "POST" })
     z.object({ taskSetId: uuid, localDate }).parse(data),
   )
   .handler(async ({ data, context }) => {
-    const res = await context.supabase.rpc("roll_daily_run", {
+    const { supabase } = context;
+
+    // Smart order (opt-in per world): ask the planner first, then let the
+    // database validate and lock it. Any hiccup falls back to the dice.
+    const set = await supabase
+      .from("task_sets")
+      .select("name, ai_order")
+      .eq("id", data.taskSetId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    if (set.data?.ai_order) {
+      const smart = await smartRoll(context, data, set.data.name);
+      if (smart) return smart;
+    }
+
+    const res = await supabase.rpc("roll_daily_run", {
       p_task_set_id: data.taskSetId,
       p_local_date: data.localDate,
     });
@@ -461,6 +494,75 @@ export const rollToday = createServerFn({ method: "POST" })
     }
     return res.data;
   });
+
+async function smartRoll(
+  context: { supabase: any; userId: string },
+  data: { taskSetId: string; localDate: string },
+  worldName: string,
+) {
+  try {
+    const { supabase, userId } = context;
+    const dow = new Date(`${data.localDate}T12:00:00Z`).getUTCDay();
+
+    const [tasksRes, histRes] = await Promise.all([
+      supabase
+        .from("tasks")
+        .select("id, title, description, priority, days")
+        .eq("task_set_id", data.taskSetId)
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .order("position"),
+      supabase
+        .from("daily_runs")
+        .select("sequence")
+        .eq("task_set_id", data.taskSetId)
+        .eq("user_id", userId)
+        .lt("local_date", data.localDate)
+        .order("local_date", { ascending: false })
+        .limit(7),
+    ]);
+
+    const eligible = (tasksRes.data ?? []).filter(
+      (t: { days: number[] | null }) => !t.days || t.days.length === 0 || t.days.includes(dow),
+    );
+    if (eligible.length < 2) return null;
+
+    const history = (histRes.data ?? []).map(
+      (r: { sequence: Array<{ id: string }> | null }) => r.sequence ?? [],
+    );
+
+    const { planMissionOrder } = await import("@/lib/ai-plan.server");
+    const plan = await planMissionOrder({
+      worldName,
+      weekday: WEEKDAYS[dow] ?? "today",
+      tasks: eligible.map(
+        (t: { id: string; title: string; description: string | null; priority: number }) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          priority: t.priority ?? 1,
+          recentlyFirst: history.filter((s: Array<{ id: string }>) => s[0]?.id === t.id).length,
+          recentlyLast: history.filter(
+            (s: Array<{ id: string }>) => s.length > 0 && s[s.length - 1]?.id === t.id,
+          ).length,
+        }),
+      ),
+    });
+    if (!plan) return null;
+
+    const res = await supabase.rpc("roll_daily_run_ai", {
+      p_task_set_id: data.taskSetId,
+      p_local_date: data.localDate,
+      p_order: plan.order,
+      p_reason: plan.reason,
+    });
+    if (res.error) return null;
+    return res.data;
+  } catch {
+    return null;
+  }
+}
+
 
 /**
  * Restart today's adventure: progress resets to the first checkpoint while the

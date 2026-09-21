@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       daily_runs: {
         Row: {
+          ai_planned: boolean
+          ai_reason: string | null
           completed_at: string | null
           completed_tasks: Json
           created_at: string
@@ -28,6 +30,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_planned?: boolean
+          ai_reason?: string | null
           completed_at?: string | null
           completed_tasks?: Json
           created_at?: string
@@ -40,6 +44,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_planned?: boolean
+          ai_reason?: string | null
           completed_at?: string | null
           completed_tasks?: Json
           created_at?: string
@@ -93,6 +99,7 @@ export type Database = {
       }
       task_sets: {
         Row: {
+          ai_order: boolean
           created_at: string
           current_streak: number
           custom_color: string | null
@@ -107,6 +114,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_order?: boolean
           created_at?: string
           current_streak?: number
           custom_color?: string | null
@@ -121,6 +129,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_order?: boolean
           created_at?: string
           current_streak?: number
           custom_color?: string | null
@@ -315,6 +324,8 @@ export type Database = {
       complete_current_task: {
         Args: { p_daily_run_id: string; p_task_id: string }
         Returns: {
+          ai_planned: boolean
+          ai_reason: string | null
           completed_at: string | null
           completed_tasks: Json
           created_at: string
@@ -340,6 +351,8 @@ export type Database = {
       reroll_daily_run: {
         Args: { p_local_date: string; p_task_set_id: string }
         Returns: {
+          ai_planned: boolean
+          ai_reason: string | null
           completed_at: string | null
           completed_tasks: Json
           created_at: string
@@ -361,6 +374,8 @@ export type Database = {
       restart_daily_run: {
         Args: { p_local_date: string; p_task_set_id: string }
         Returns: {
+          ai_planned: boolean
+          ai_reason: string | null
           completed_at: string | null
           completed_tasks: Json
           created_at: string
@@ -382,6 +397,36 @@ export type Database = {
       roll_daily_run: {
         Args: { p_local_date: string; p_task_set_id: string }
         Returns: {
+          ai_planned: boolean
+          ai_reason: string | null
+          completed_at: string | null
+          completed_tasks: Json
+          created_at: string
+          current_index: number
+          id: string
+          local_date: string
+          rolled_at: string
+          sequence: Json
+          task_set_id: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "daily_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      roll_daily_run_ai: {
+        Args: {
+          p_local_date: string
+          p_order: string[]
+          p_reason?: string
+          p_task_set_id: string
+        }
+        Returns: {
+          ai_planned: boolean
+          ai_reason: string | null
           completed_at: string | null
           completed_tasks: Json
           created_at: string

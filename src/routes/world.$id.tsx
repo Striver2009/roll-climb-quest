@@ -373,8 +373,14 @@ function WorldPage() {
                     🎲 ROLL TODAY'S ADVENTURE
                   </h2>
                   <p className="mt-1 text-muted-foreground">
-                    The dice locks your mission order for {prettyDate(today)}.
+                    {w.ai_order ? "Smart order" : "The dice"} locks your mission order for{" "}
+                    {prettyDate(today)}.
                   </p>
+                  {w.ai_order && (
+                    <p className="mt-1 rounded-full bg-muted px-3 py-1 text-xs font-extrabold">
+                      🧠 SMART ORDER IS ON
+                    </p>
+                  )}
                   <Dice3D
                     phase={phase}
                     labels={activeTasks.map((t) => t.title)}
@@ -386,7 +392,13 @@ function WorldPage() {
                     onClick={() => rollMut.mutate()}
                     className="rounded-2xl bg-primary px-7 py-4 font-display text-xl font-extrabold text-primary-foreground shadow-toy active:translate-y-1 active:shadow-none disabled:opacity-60"
                   >
-                    {rollMut.isPending ? "ROLLING..." : "ROLL THE DICE"}
+                    {rollMut.isPending
+                      ? w.ai_order
+                        ? "THINKING..."
+                        : "ROLLING..."
+                      : w.ai_order
+                        ? "🧠 PLAN MY DAY"
+                        : "ROLL THE DICE"}
                   </button>
                   {activeTasks.length === 0 && (
                     <p className="mt-3 text-sm font-bold text-destructive">
@@ -399,6 +411,16 @@ function WorldPage() {
                   <h2 className="font-display text-xl font-extrabold">
                     {done ? "🏆 TODAY'S ROUTE COMPLETE" : "🎯 CURRENT MISSION"}
                   </h2>
+                  {run?.ai_planned && (
+                    <div className="mt-2 rounded-2xl border-2 border-border bg-muted/40 p-3 text-left">
+                      <p className="font-display text-xs font-extrabold">
+                        🧠 SMART ORDER PICKED TODAY'S ROUTE
+                      </p>
+                      {run.ai_reason && (
+                        <p className="mt-1 text-xs text-muted-foreground">{run.ai_reason}</p>
+                      )}
+                    </div>
+                  )}
                   {current && !done ? (
                     <>
                       <p className="mt-3 font-display text-2xl font-extrabold">{current.title}</p>
@@ -551,6 +573,8 @@ function WorldPage() {
             emoji: w.emoji,
             theme: w.theme,
             custom_color: w.custom_color,
+            folder_id: w.folder_id,
+            ai_order: w.ai_order,
           }}
           onClose={() => setEditOpen(false)}
         />
