@@ -488,8 +488,6 @@ export const rollToday = createServerFn({ method: "POST" })
     return res.data;
   });
 
-type AuthContext = { supabase: ReturnType<typeof requireSupabaseAuth> extends never ? never : any };
-
 async function smartRoll(
   context: { supabase: any; userId: string },
   data: { taskSetId: string; localDate: string },
